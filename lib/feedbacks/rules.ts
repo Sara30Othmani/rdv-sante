@@ -1,15 +1,18 @@
-import { Feedback, FeedbackStatus, Role } from "./types";
- 
+import type { Feedback, FeedbackStatus, Role } from "./types";
+
+// Ces règles sont appliquées dans le navigateur (pour l'affichage) ET sur le
+// serveur (routes /api/feedbacks) : c'est le serveur qui fait foi.
+
 export const NEXT_STATUS: Record<FeedbackStatus, FeedbackStatus | null> = {
   OPEN: "IN_PROGRESS",
   IN_PROGRESS: "RESOLVED",
   RESOLVED: "CLOSED",
   CLOSED: null,
 };
- 
+
 export const canChangeStatus = (from: FeedbackStatus, to: FeedbackStatus) =>
   NEXT_STATUS[from] === to;
- 
+
 export function validate(f: Partial<Feedback>): string[] {
   const errors: string[] = [];
   if (!f.content || f.content.trim().length < 10)
@@ -21,25 +24,28 @@ export function validate(f: Partial<Feedback>): string[] {
   if (!f.appointment_id) errors.push("Choisis un rendez-vous.");
   return errors;
 }
- 
+
+/** Patient : ses feedbacks. Médecin : ceux qui lui sont adressés. */
+export function canView(f: Feedback, userId: string, role: Role) {
+  return role === "DOCTOR" ? f.doctor_id === userId : f.user_id === userId;
+}
+
+/** Seul l'auteur modifie, tant que l'avis existe ou que la réclamation est ouverte. */
 export function canEdit(f: Feedback, userId: string, role: Role) {
   if (role !== "PATIENT" || f.user_id !== userId) return false;
   return f.type === "REVIEW" || f.status === "OPEN";
 }
- 
-export function canDelete(f: Feedback, userId: string, role: Role) {
-  if (role === "ADMIN") return true;
-  return (
-    role === "PATIENT" &&
-    f.user_id === userId &&
-    (f.type === "REVIEW" || f.status === "OPEN")
-  );
-}
- 
+
+/**
+ * Seul l'auteur supprime : un médecin ne peut pas faire disparaître un avis
+ * négatif, il peut seulement y répondre.
+ */
+export const canDelete = canEdit;
+
 export function canRespond(f: Feedback, userId: string, role: Role) {
-  return role === "ADMIN" || (role === "DOCTOR" && f.doctor_id === userId);
+  return role === "DOCTOR" && f.doctor_id === userId;
 }
- 
+
 export function canManageStatus(f: Feedback, userId: string, role: Role) {
   return f.type === "COMPLAINT" && canRespond(f, userId, role);
 }

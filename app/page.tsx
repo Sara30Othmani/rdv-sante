@@ -43,6 +43,10 @@ export default function Home() {
 
           Voir les feedbacks
 </Link>
+<Link href="/forum" className="rounded-lg border border-sky-600 px-4 py-3 text-center text-sky-700">
+
+          Forum patients
+</Link>
 
         {user.role === "PATIENT" && (
 <Link href="/feedbacks/form" className="rounded-lg border border-sky-600 px-4 py-3 text-center text-sky-700">

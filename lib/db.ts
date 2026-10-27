@@ -1,6 +1,8 @@
 import { openDB, DBSchema } from "idb";
 
 import { Feedback } from "./feedbacks/types";
+
+import type { ForumQuestion, ForumReply } from "./forum/types";
  
 interface RdvDB extends DBSchema {
 
@@ -16,21 +18,65 @@ interface RdvDB extends DBSchema {
 
   deleted: { key: string; value: { id: string } };
 
+  forumQuestions: {
+
+    key: string;
+
+    value: ForumQuestion;
+
+    indexes: { "by-author": string };
+
+  };
+
+  forumReplies: {
+
+    key: string;
+
+    value: ForumReply;
+
+    indexes: { "by-question": string; "by-author": string };
+
+  };
+
 }
  
+export const DB_NAME = "rdv-sante";
+
+export const DB_VERSION = 2;
+ 
+// Chaque version ne fait que des ajouts : les données existantes sont conservées.
+
 export const getDB = () =>
 
-  openDB<RdvDB>("rdv-sante", 1, {
+  openDB<RdvDB>(DB_NAME, DB_VERSION, {
 
-    upgrade(db) {
+    upgrade(db, oldVersion) {
 
-      const s = db.createObjectStore("feedbacks", { keyPath: "id" });
+      if (oldVersion < 1) {
 
-      s.createIndex("by-user", "user_id");
+        const s = db.createObjectStore("feedbacks", { keyPath: "id" });
 
-      s.createIndex("by-doctor", "doctor_id");
+        s.createIndex("by-user", "user_id");
 
-      db.createObjectStore("deleted", { keyPath: "id" });
+        s.createIndex("by-doctor", "doctor_id");
+
+        db.createObjectStore("deleted", { keyPath: "id" });
+
+      }
+
+      if (oldVersion < 2) {
+
+        const q = db.createObjectStore("forumQuestions", { keyPath: "id" });
+
+        q.createIndex("by-author", "author_id");
+
+        const r = db.createObjectStore("forumReplies", { keyPath: "id" });
+
+        r.createIndex("by-question", "question_id");
+
+        r.createIndex("by-author", "author_id");
+
+      }
 
     },
 

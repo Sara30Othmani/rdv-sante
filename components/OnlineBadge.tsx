@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { syncPending } from "@/lib/feedbacks/service";
+
+import { syncPendingForum } from "@/lib/forum/service";
  
 export default function OnlineBadge() {
 
@@ -14,7 +16,13 @@ export default function OnlineBadge() {
 
       setOnline(navigator.onLine);
 
-      if (navigator.onLine) syncPending();
+      if (navigator.onLine) {
+
+        syncPending();
+
+        syncPendingForum();
+
+      }
 
     };
 

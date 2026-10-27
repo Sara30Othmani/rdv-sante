@@ -1,6 +1,9 @@
-const CACHE = "rdv-sante-v1";
+const CACHE = "rdv-sante-v2";
 
-const PRECACHE = ["/", "/feedbacks", "/feedbacks/form", "/feedbacks/detail", "/offline"];
+const PRECACHE = [
+  "/", "/feedbacks", "/feedbacks/form", "/feedbacks/detail",
+  "/forum", "/forum/form", "/forum/question", "/offline",
+];
  
 self.addEventListener("install", (e) => {
 

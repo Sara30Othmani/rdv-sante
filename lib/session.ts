@@ -1,71 +1,44 @@
 "use client";
 
-// Session de DÉMONSTRATION (profil choisi dans une liste), en attendant le vrai
-// module d'authentification. Quand il existera, seuls ce fichier et
-// lib/auth.ts (côté serveur) devront changer.
-import { useMemo, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import type { Role } from "./feedbacks/types";
 
-export type SessionUser = { id: string; name: string; role: Role };
+export type SessionUser = { id: string; name: string; role: Role; emailVerified?: boolean };
 
-const KEY = "session";
 const EVENT = "session-change";
 
-function readRaw(): string | null {
-  try {
-    return localStorage.getItem(KEY);
-  } catch {
-    return null;
-  }
+let _user: SessionUser | null = null;
+
+/** Lit l'utilisateur en cache (mis à jour par AuthProvider). */
+export function getSessionUser(): SessionUser | null {
+  return _user;
 }
 
-function parse(raw: string | null): SessionUser | null {
-  if (!raw) return null;
-  try {
-    const v = JSON.parse(raw);
-    const validRole = v?.role === "PATIENT" || v?.role === "DOCTOR";
-    return validRole && typeof v.id === "string" && typeof v.name === "string"
-      ? { id: v.id, name: v.name, role: v.role }
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Utilisable hors composant (services, appels API). */
-export const getSessionUser = () => parse(readRaw());
-
-export function setSession(user: SessionUser) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(user));
-  } catch {
-    /* stockage indisponible : on ignore */
+/** Accepte un rôle quelconque (string) et le valide. */
+export function setSession(user: { id: string; name: string; role: string; emailVerified?: boolean } | null) {
+  if (!user) {
+    _user = null;
+  } else {
+    const role: Role = user.role === "DOCTOR" ? "DOCTOR" : "PATIENT";
+    _user = { id: user.id, name: user.name, role, emailVerified: user.emailVerified };
   }
   window.dispatchEvent(new Event(EVENT));
 }
 
+/** Supprime l'utilisateur en cache (déconnexion). */
 export function clearSession() {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    /* ignoré */
-  }
+  _user = null;
   window.dispatchEvent(new Event(EVENT));
 }
 
 function subscribe(callback: () => void) {
   window.addEventListener(EVENT, callback);
-  window.addEventListener("storage", callback);
-  return () => {
-    window.removeEventListener(EVENT, callback);
-    window.removeEventListener("storage", callback);
-  };
+  return () => window.removeEventListener(EVENT, callback);
 }
 
-/** Utilisateur connecté, ou null (pas encore choisi / déconnecté). */
+/** Utilisateur connecté, ou null. */
 export function useSession() {
-  const raw = useSyncExternalStore(subscribe, readRaw, () => null);
-  const user = useMemo(() => parse(raw), [raw]);
+  const user = useSyncExternalStore(subscribe, () => _user, () => null);
   return { user };
 }
 

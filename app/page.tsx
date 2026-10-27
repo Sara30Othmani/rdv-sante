@@ -2,11 +2,10 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import ProfilePicker from "@/components/ProfilePicker";
 import { useHydrated, useSession } from "@/lib/session";
 import { SEGMENT_BY_ROLE } from "@/lib/roles";
 
-/** « / » : connexion de démonstration, ou redirection vers l'espace du profil. */
+/** « / » : redirection vers l'espace du profil, ou écran de connexion. */
 export default function HomePage() {
   const router = useRouter();
   const { user } = useSession();
@@ -23,5 +22,5 @@ export default function HomePage() {
       </main>
     );
   }
-  return <ProfilePicker />;
+  return null; // Sidebar/Layout affiche le lien de connexion
 }

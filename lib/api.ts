@@ -8,14 +8,12 @@ export class ApiError extends Error {
   }
 }
 
-/** fetch + identité de la session (en-tête lu par lib/auth.ts côté serveur). */
+/** fetch avec credentials (cookies de session inclus). */
 export async function apiFetch(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
-  const user = getSessionUser();
-  if (user) headers.set("x-user-id", user.id);
   if (init.body && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
-  return fetch(path, { ...init, headers });
+  return fetch(path, { ...init, headers, credentials: "include" });
 }
 
 /** Renvoie le JSON, ou lève une ApiError avec le message du serveur. */
@@ -31,4 +29,9 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(message, res.status);
   }
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+}
+
+/** true si un utilisateur est en cache (session cookie). */
+export function isAuthenticated(): boolean {
+  return !!getSessionUser();
 }

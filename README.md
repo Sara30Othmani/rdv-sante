@@ -4,19 +4,6 @@ Application web (PWA) de **prise de rendez-vous médicaux** avec deux profils : 
 Les patients réservent, suivent leurs rendez-vous et laissent des avis ou réclamations ; les médecins gèrent
 leurs demandes, répondent aux retours et suivent leur activité sur un tableau de bord.
 
-## Fonctionnalités
-
-| Module | Patient | Médecin | État |
-|---|---|---|---|
-| Rendez-vous | choisir un médecin, réserver un créneau, modifier, annuler | accepter, refuser, terminer, ajouter des notes | ✅ |
-| Feedbacks (avis et réclamations) | créer, modifier, supprimer, suivre le statut | consulter, répondre, faire avancer une réclamation | ✅ |
-| Tableau de bord | suivi des réclamations, notes des médecins | KPI : rendez-vous à venir / en attente / clôturés, réclamations, avis, note moyenne | ✅ |
-| Mode hors-ligne (PWA) | feedbacks créés sans réseau, synchronisés ensuite | idem | ✅ |
-| Forum | — | — | 🔜 modèles prêts |
-| Stock du médecin | — | — | 🔜 modèles prêts |
-| Médicaments et ordonnances | — | — | 🔜 modèles prêts |
-| Authentification | connexion de **démonstration** (choix d'un profil) | idem | 🔜 à brancher |
-
 ## Stack technique
 
 - **Next.js 16** (App Router, Cache Components) · **React 19** · **TypeScript**

@@ -4,22 +4,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { clearSession, useSession } from "@/lib/session";
-import {
-  SEGMENT_BY_ROLE,
-  SPACE_LABEL,
-  segmentFromPath,
-  type RoleSegment,
-} from "@/lib/roles";
-import RoleSwitcher from "./RoleSwitcher";
+import { SEGMENT_BY_ROLE, SPACE_LABEL, segmentFromPath, type RoleSegment } from "@/lib/roles";
 import OnlineBadge from "./OnlineBadge";
 import InstallButton from "./InstallButton";
 
 type MenuItem = {
   label: string;
   href: string;
-  /** Préfixe d'URL pour considérer l'entrée comme active (par défaut : href). */
   match?: string;
-  /** true : actif uniquement sur l'URL exacte (pages d'accueil d'un espace). */
   exact?: boolean;
   icon: string;
 };
@@ -58,7 +50,6 @@ export default function Sidebar() {
   const router = useRouter();
   const { user } = useSession();
 
-  // L'URL décide de l'espace ; hors espace (ex. "/offline"), on retombe sur la session.
   const segment: RoleSegment =
     segmentFromPath(pathname) ?? (user ? SEGMENT_BY_ROLE[user.role] : "patient");
 
@@ -89,9 +80,7 @@ export default function Sidebar() {
               className={`sidebar-link ${active ? "active" : ""}`}
               aria-current={active ? "page" : undefined}
             >
-              <span className="sidebar-icon" aria-hidden="true">
-                {item.icon}
-              </span>
+              <span className="sidebar-icon" aria-hidden="true">{item.icon}</span>
               <span>{item.label}</span>
             </Link>
           );
@@ -103,21 +92,35 @@ export default function Sidebar() {
           <OnlineBadge />
           <InstallButton />
         </div>
-        <RoleSwitcher />
         {user && (
+          <div className="sidebar-user">
+            <span className="sidebar-user-name">{user.name}</span>
+            <span className="sidebar-user-role">
+              {user.role === "PATIENT" ? "Patient" : "Médecin"}
+            </span>
+          </div>
+        )}
+        {user ? (
           <button
             type="button"
             className="sidebar-logout"
-            onClick={() => {
-              clearSession();
-              router.push("/");
+            onClick={async () => {
+              try {
+                await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+              } finally {
+                clearSession();
+                router.push("/");
+              }
             }}
           >
-            <span className="sidebar-icon" aria-hidden="true">
-              ↪
-            </span>
+            <span className="sidebar-icon" aria-hidden="true">↪</span>
             <span>Déconnexion</span>
           </button>
+        ) : (
+          <Link href="/login" className="sidebar-link sidebar-login">
+            <span className="sidebar-icon" aria-hidden="true">↗</span>
+            <span>Se connecter</span>
+          </Link>
         )}
       </div>
     </aside>

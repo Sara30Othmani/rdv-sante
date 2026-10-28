@@ -3,13 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useHydrated, useSession } from "@/lib/session";
-import {
-  ROLE_BY_SEGMENT,
-  SEGMENT_BY_ROLE,
-  SPACE_LABEL,
-  type RoleSegment,
-} from "@/lib/roles";
-import ProfilePicker from "./ProfilePicker";
+import { ROLE_BY_SEGMENT, SEGMENT_BY_ROLE, SPACE_LABEL, type RoleSegment } from "@/lib/roles";
 
 /**
  * Protège un espace (/patient, /medecin) : l'URL choisit l'espace, la session
@@ -35,7 +29,17 @@ export default function RoleGuard({
     );
   }
 
-  if (!user) return <ProfilePicker />;
+  if (!user) {
+    return (
+      <main className="access-denied">
+        <h1>Connexion requise</h1>
+        <p>Vous devez être connecté pour accéder à {SPACE_LABEL[segment].toLowerCase()}.</p>
+        <Link href="/login" className="btn-prendre-rdv">
+          Se connecter
+        </Link>
+      </main>
+    );
+  }
 
   if (user.role === ROLE_BY_SEGMENT[segment]) return <>{children}</>;
 

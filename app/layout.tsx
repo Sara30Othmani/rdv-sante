@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense, type ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
-import Sidebar from "@/components/Sidebar";
-import PwaRegister from "@/components/PwaRegister";
+import AppShell from "@/components/AppShell";
 import "./globals.css";
+import PwaRegister from "@/components/PwaRegister";
+import Sidebar from "@/components/Sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

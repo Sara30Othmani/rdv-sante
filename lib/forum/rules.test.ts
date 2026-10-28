@@ -5,18 +5,18 @@ import {
 } from "./rules";
 import type { Actor, ForumQuestion, ForumReply } from "./types";
 
-const patient: Actor = { id: "p1", role: "PATIENT" };
-const otherPatient: Actor = { id: "p2", role: "PATIENT" };
-const doctor: Actor = { id: "d1", role: "DOCTOR" };
-const admin: Actor = { id: "a1", role: "ADMIN" };
+const patient: Actor = { id: "p1", name: "Sarra Ben Ali", role: "PATIENT" };
+const otherPatient: Actor = { id: "p2", name: "Ahmed Mansour", role: "PATIENT" };
+const doctor: Actor = { id: "d1", name: "Dr. Amel Ben Salem", role: "DOCTOR" };
+const otherDoctor: Actor = { id: "d2", name: "Dr. Yassine Trabelsi", role: "DOCTOR" };
 
 const t = "2026-01-01T00:00:00.000Z";
 const question: ForumQuestion = {
-  id: "q1", author_id: "p1", title: "Titre valide", content: "Contenu suffisamment long",
+  id: "q1", author_id: "p1", author_name: "Sarra Ben Ali", author_role: "PATIENT", title: "Titre valide", content: "Contenu suffisamment long",
   created_at: t, updated_at: t, syncStatus: "synced",
 };
 const reply: ForumReply = {
-  id: "r1", question_id: "q1", author_id: "d1", content: "Une réponse",
+  id: "r1", question_id: "q1", author_id: "d1", author_name: "Dr. Amel Ben Salem", author_role: "DOCTOR", content: "Une réponse",
   created_at: t, updated_at: t, syncStatus: "synced",
 };
 
@@ -57,31 +57,30 @@ describe("permissions", () => {
   it("seuls les patients posent des questions", () => {
     expect(canAskQuestion(patient)).toBe(true);
     expect(canAskQuestion(doctor)).toBe(false);
-    expect(canAskQuestion(admin)).toBe(false);
   });
 
-  it("tous les rôles connus peuvent répondre", () => {
-    for (const a of [patient, doctor, admin]) expect(canReply(a)).toBe(true);
+  it("patients et médecins peuvent répondre", () => {
+    for (const a of [patient, otherPatient, doctor]) expect(canReply(a)).toBe(true);
   });
 
   it("seul l'auteur modifie sa question", () => {
     expect(canEditQuestion(question, patient)).toBe(true);
     expect(canEditQuestion(question, otherPatient)).toBe(false);
-    expect(canEditQuestion(question, admin)).toBe(false);
+    expect(canEditQuestion(question, doctor)).toBe(false);
   });
 
-  it("l'auteur ou un admin supprime une question", () => {
+  it("l'auteur ou un médecin (modération) supprime une question", () => {
     expect(canDeleteQuestion(question, patient)).toBe(true);
-    expect(canDeleteQuestion(question, admin)).toBe(true);
+    expect(canDeleteQuestion(question, doctor)).toBe(true);
     expect(canDeleteQuestion(question, otherPatient)).toBe(false);
-    expect(canDeleteQuestion(question, doctor)).toBe(false);
   });
 
   it("mêmes règles pour les réponses", () => {
     expect(canEditReply(reply, doctor)).toBe(true);
     expect(canEditReply(reply, patient)).toBe(false);
+    expect(canEditReply(reply, otherDoctor)).toBe(false);
     expect(canDeleteReply(reply, doctor)).toBe(true);
-    expect(canDeleteReply(reply, admin)).toBe(true);
+    expect(canDeleteReply(reply, otherDoctor)).toBe(true);
     expect(canDeleteReply(reply, patient)).toBe(false);
   });
 });

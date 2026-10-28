@@ -55,22 +55,25 @@ export function validateReply(content: unknown): string[] {
 }
 
 // --- Permissions -----------------------------------------------------------
-// Tous les utilisateurs connectés peuvent lire le forum et répondre.
-// Seuls les patients posent des questions (comme pour les feedbacks).
-// Seul l'auteur modifie son contenu ; l'auteur ou un admin peut supprimer.
+// Les patients posent les questions ; patients et médecins répondent.
+// Seul l'auteur modifie son contenu. Il n'y a pas d'administrateur dans
+// l'application : la modération (suppression) revient aux médecins, comme
+// prévu pour models/ForumReport.ts.
 
 export const canAskQuestion = (actor: Actor) => actor.role === "PATIENT";
 
 export const canReply = (actor: Actor) =>
-  actor.role === "PATIENT" || actor.role === "DOCTOR" || actor.role === "ADMIN";
+  actor.role === "PATIENT" || actor.role === "DOCTOR";
+
+const isModerator = (actor: Actor) => actor.role === "DOCTOR";
 
 export const canEditQuestion = (q: ForumQuestion, actor: Actor) =>
   q.author_id === actor.id;
 
 export const canDeleteQuestion = (q: ForumQuestion, actor: Actor) =>
-  actor.role === "ADMIN" || q.author_id === actor.id;
+  q.author_id === actor.id || isModerator(actor);
 
 export const canEditReply = (r: ForumReply, actor: Actor) => r.author_id === actor.id;
 
 export const canDeleteReply = (r: ForumReply, actor: Actor) =>
-  actor.role === "ADMIN" || r.author_id === actor.id;
+  r.author_id === actor.id || isModerator(actor);

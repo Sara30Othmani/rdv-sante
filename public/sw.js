@@ -1,8 +1,13 @@
 const CACHE = "rdv-sante-v2";
 
+// Uniquement des pages qui existent : une seule URL en erreur fait échouer
+// l'installation du service worker (cache.addAll est tout ou rien).
 const PRECACHE = [
-  "/", "/feedbacks", "/feedbacks/form", "/feedbacks/detail",
-  "/forum", "/forum/form", "/forum/question", "/offline",
+  "/", "/offline",
+  "/patient", "/patient/forum", "/patient/forum/question", "/patient/forum/form",
+  "/medecin", "/medecin/forum", "/medecin/forum/question",
+  "/patient/feedbacks", "/patient/feedbacks/dashboard", "/patient/feedbacks/detail", "/patient/feedbacks/form",
+  "/medecin/feedbacks", "/medecin/feedbacks/dashboard", "/medecin/feedbacks/detail",
 ];
  
 self.addEventListener("install", (e) => {

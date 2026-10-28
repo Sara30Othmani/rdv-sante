@@ -1,7 +1,7 @@
 "use client";
 // Éléments d'interface partagés par les pages du forum.
 import { useEffect, useRef, type ReactNode } from "react";
-import { users, userName } from "@/lib/mock";
+import type { Role } from "@/lib/feedbacks/types";
 import { AlertIcon, CheckCircleIcon, CloseIcon, ShieldCheckIcon, TrashIcon } from "./icons";
 
 // --- Boutons et champs -------------------------------------------------------
@@ -63,46 +63,33 @@ export function FieldFooter({
 
 // --- Identité des auteurs ----------------------------------------------------
 
-/** Nom sans le suffixe de démo « (Patient) ». */
-export const displayName = (id: string) => userName(id).replace(/\s*\(.*?\)\s*/g, "").trim();
-const roleOf = (id: string) => users.find((u) => u.id === id)?.role;
-
-function initial(id: string) {
-  const name = displayName(id).replace(/^Dr\.?\s*/i, "");
-  return (name[0] ?? "?").toUpperCase();
+function initial(name: string) {
+  const clean = name.replace(/^Dr\.?\s*/i, "").trim();
+  return (clean[0] ?? "?").toUpperCase();
 }
 
-export function Avatar({ id, size = "md" }: { id: string; size?: "sm" | "md" }) {
-  const doctor = roleOf(id) === "DOCTOR";
+export function Avatar({ name, role, size = "md" }: { name: string; role: Role; size?: "sm" | "md" }) {
   const dims = size === "sm" ? "size-6 text-[11px]" : "size-9 text-sm";
   return (
     <span
       aria-hidden="true"
       className={`inline-flex ${dims} shrink-0 items-center justify-center rounded-full font-semibold ${
-        doctor ? "bg-teal-700 text-white" : "bg-slate-200 text-slate-700"
+        role === "DOCTOR" ? "bg-teal-700 text-white" : "bg-slate-200 text-slate-700"
       }`}
     >
-      {initial(id)}
+      {initial(name)}
     </span>
   );
 }
 
-export function RoleBadge({ id }: { id: string }) {
-  const role = roleOf(id);
-  if (role === "DOCTOR")
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-800 ring-1 ring-teal-600/20 ring-inset">
-        <ShieldCheckIcon size={13} />
-        Médecin
-      </span>
-    );
-  if (role === "ADMIN")
-    return (
-      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-500/15 ring-inset">
-        Modération
-      </span>
-    );
-  return null;
+export function RoleBadge({ role }: { role: Role }) {
+  if (role !== "DOCTOR") return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-800 ring-1 ring-teal-600/20 ring-inset">
+      <ShieldCheckIcon size={13} />
+      Médecin
+    </span>
+  );
 }
 
 // --- Dates -------------------------------------------------------------------

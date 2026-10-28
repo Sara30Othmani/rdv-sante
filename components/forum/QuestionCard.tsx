@@ -1,13 +1,15 @@
 "use client";
 import Link from "next/link";
 import type { ForumQuestionSummary } from "@/lib/forum/types";
+import type { RoleSegment } from "@/lib/roles";
+import { forumRoutes } from "@/lib/forum/routes";
 import { ChatIcon, ClockIcon } from "./icons";
-import { Avatar, displayName, RoleBadge, TimeAgo } from "./ui";
+import { Avatar, RoleBadge, TimeAgo } from "./ui";
 
 const plural = (n: number) => `${n} réponse${n > 1 ? "s" : ""}`;
 
-export default function QuestionCard({ q }: { q: ForumQuestionSummary }) {
-  const href = `/forum/question?id=${encodeURIComponent(q.id)}`;
+export default function QuestionCard({ q, segment }: { q: ForumQuestionSummary; segment: RoleSegment }) {
+  const href = forumRoutes(segment).question(q.id);
   const answered = q.replyCount > 0;
 
   return (
@@ -37,8 +39,8 @@ export default function QuestionCard({ q }: { q: ForumQuestionSummary }) {
 
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
             <span className="flex items-center gap-2">
-              <Avatar id={q.author_id} size="sm" />
-              <span className="font-medium text-slate-700">{displayName(q.author_id)}</span>
+              <Avatar name={q.author_name} role={q.author_role} size="sm" />
+              <span className="font-medium text-slate-700">{q.author_name}</span>
               <TimeAgo iso={q.created_at} />
             </span>
 
@@ -50,8 +52,8 @@ export default function QuestionCard({ q }: { q: ForumQuestionSummary }) {
             {q.lastReply ? (
               <span className="flex min-w-0 items-center gap-1.5">
                 <span>Dernière réponse de</span>
-                <span className="font-medium text-slate-700">{displayName(q.lastReply.author_id)}</span>
-                <RoleBadge id={q.lastReply.author_id} />
+                <span className="font-medium text-slate-700">{q.lastReply.author_name}</span>
+                <RoleBadge role={q.lastReply.author_role} />
                 <TimeAgo iso={q.lastReply.created_at} />
               </span>
             ) : (

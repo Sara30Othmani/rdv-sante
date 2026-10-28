@@ -33,7 +33,7 @@ export class ForumError extends Error {
 }
 
 function requireActor(actor: Actor | null | undefined): Actor {
-  if (!actor?.id || !actor.role)
+  if (!actor?.id || !actor.role || !actor.name)
     throw new ForumError("Vous devez être connecté.", "UNAUTHENTICATED");
   return actor;
 }
@@ -94,6 +94,8 @@ export async function createQuestion(
   const question: ForumQuestion = {
     id: crypto.randomUUID(),
     author_id: user.id,
+    author_name: user.name,
+    author_role: user.role,
     title: cleanText(input.title),
     content: cleanText(input.content),
     created_at: t,
@@ -178,6 +180,8 @@ export async function createReply(
     id: crypto.randomUUID(),
     question_id: question.id,
     author_id: user.id,
+    author_name: user.name,
+    author_role: user.role,
     content: cleanText(content),
     created_at: t,
     updated_at: t,
@@ -259,7 +263,9 @@ export async function seedForumIfEmpty() {
   await tx.objectStore("forumQuestions").put({
     ...base,
     id: "forum-demo1",
-    author_id: "p2",
+    author_id: "demo-patient",
+    author_name: "Ahmed Mansour",
+    author_role: "PATIENT",
     title: "Comment préparer une première consultation ?",
     content:
       "Je vais voir un cardiologue pour la première fois. Quels documents faut-il apporter au rendez-vous ?",
@@ -268,9 +274,11 @@ export async function seedForumIfEmpty() {
     ...base,
     id: "forum-demo1-r1",
     question_id: "forum-demo1",
-    author_id: "p1",
+    author_id: "demo-doctor",
+    author_name: "Dr. Amel Ben Salem",
+    author_role: "DOCTOR",
     content:
-      "J'ai apporté ma carte de soins, mes anciennes ordonnances et mes derniers résultats d'analyses.",
+      "Apportez votre carte de soins, vos ordonnances en cours et vos derniers résultats d'analyses. Notez aussi vos questions à l'avance.",
   });
   await tx.done;
 }

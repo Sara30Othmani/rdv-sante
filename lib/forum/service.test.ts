@@ -2,17 +2,17 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { openDB } from "idb";
 import { beforeEach, describe, expect, it } from "vitest";
-import { getDB, DB_NAME } from "../db";
+import { getDB, DB_NAME, DB_VERSION } from "../db";
 import {
   createQuestion, createReply, deleteQuestion, deleteReply, ForumError, getQuestion,
   listQuestions, listReplies, updateQuestion, updateReply,
 } from "./service";
 import type { Actor } from "./types";
 
-const sara: Actor = { id: "p1", role: "PATIENT" };
-const mohamed: Actor = { id: "p2", role: "PATIENT" };
-const doctor: Actor = { id: "d1", role: "DOCTOR" };
-const admin: Actor = { id: "a1", role: "ADMIN" };
+const sara: Actor = { id: "p1", name: "Sarra Ben Ali", role: "PATIENT" };
+const mohamed: Actor = { id: "p2", name: "Ahmed Mansour", role: "PATIENT" };
+const doctor: Actor = { id: "d1", name: "Dr. Amel Ben Salem", role: "DOCTOR" };
+const otherDoctor: Actor = { id: "d2", name: "Dr. Yassine Trabelsi", role: "DOCTOR" };
 
 const valid = { title: "Préparer un rendez-vous", content: "Quels documents faut-il apporter ?" };
 
@@ -31,6 +31,8 @@ describe("questions", () => {
   it("crée une question liée à l'auteur connecté", async () => {
     const q = await createQuestion(sara, { ...valid, title: `  ${valid.title}  ` });
     expect(q.author_id).toBe("p1");
+    expect(q.author_name).toBe("Sarra Ben Ali");
+    expect(q.author_role).toBe("PATIENT");
     expect(q.title).toBe(valid.title);
     expect(q.syncStatus).toBe("pending");
     expect(await getQuestion(q.id)).toEqual(q);
@@ -48,7 +50,7 @@ describe("questions", () => {
     expect(await listQuestions()).toHaveLength(0);
   });
 
-  it("refuse les non-patients et les visiteurs non connectés", async () => {
+  it("refuse les médecins et les visiteurs non connectés", async () => {
     await expectForumError(createQuestion(doctor, valid), "FORBIDDEN");
     await expectForumError(createQuestion(null, valid), "UNAUTHENTICATED");
   });
@@ -67,10 +69,10 @@ describe("questions", () => {
     expect((await getQuestion(q.id))?.title).toBe("Titre modifié");
   });
 
-  it("un autre utilisateur, même admin, ne peut pas modifier la question", async () => {
+  it("un autre utilisateur, même médecin, ne peut pas modifier la question", async () => {
     const q = await createQuestion(sara, valid);
     await expectForumError(updateQuestion(mohamed, q.id, valid), "FORBIDDEN");
-    await expectForumError(updateQuestion(admin, q.id, valid), "FORBIDDEN");
+    await expectForumError(updateQuestion(doctor, q.id, valid), "FORBIDDEN");
     await expectForumError(updateQuestion(sara, "inconnue", valid), "NOT_FOUND");
     await expectForumError(updateQuestion(sara, q.id, { title: "x", content: "" }), "VALIDATION");
   });
@@ -110,14 +112,13 @@ describe("suppression d'une question", () => {
     expect(all.every((r) => questionIds.has(r.question_id))).toBe(true);
   });
 
-  it("l'admin peut supprimer, pas un autre patient ni un médecin", async () => {
+  it("un médecin peut supprimer (modération), pas un autre patient", async () => {
     const q = await createQuestion(sara, valid);
     await expectForumError(deleteQuestion(mohamed, q.id), "FORBIDDEN");
-    await expectForumError(deleteQuestion(doctor, q.id), "FORBIDDEN");
     expect(await getQuestion(q.id)).toBeDefined();
-    await deleteQuestion(admin, q.id);
+    await deleteQuestion(doctor, q.id);
     expect(await getQuestion(q.id)).toBeUndefined();
-    await expectForumError(deleteQuestion(admin, q.id), "NOT_FOUND");
+    await expectForumError(deleteQuestion(doctor, q.id), "NOT_FOUND");
   });
 });
 
@@ -125,7 +126,10 @@ describe("réponses", () => {
   it("crée une réponse liée à la question et à l'auteur connecté", async () => {
     const q = await createQuestion(sara, valid);
     const r = await createReply(doctor, q.id, "  Apportez vos ordonnances.  ");
-    expect(r).toMatchObject({ question_id: q.id, author_id: "d1", content: "Apportez vos ordonnances." });
+    expect(r).toMatchObject({
+      question_id: q.id, author_id: "d1", author_name: "Dr. Amel Ben Salem", author_role: "DOCTOR",
+      content: "Apportez vos ordonnances.",
+    });
     expect(await listReplies(q.id)).toEqual([r]);
   });
 
@@ -149,7 +153,7 @@ describe("réponses", () => {
     const q = await createQuestion(sara, valid);
     const r = await createReply(doctor, q.id, "Texte initial");
     await expectForumError(updateReply(sara, r.id, "Piratage"), "FORBIDDEN");
-    await expectForumError(updateReply(admin, r.id, "Piratage"), "FORBIDDEN");
+    await expectForumError(updateReply(otherDoctor, r.id, "Piratage"), "FORBIDDEN");
     await expectForumError(updateReply(doctor, r.id, ""), "VALIDATION");
     const updated = await updateReply(doctor, r.id, "Texte corrigé");
     expect(updated.content).toBe("Texte corrigé");
@@ -157,33 +161,50 @@ describe("réponses", () => {
     expect((await listReplies(q.id))[0].content).toBe("Texte corrigé");
   });
 
-  it("l'auteur ou un admin supprime une réponse", async () => {
+  it("l'auteur ou un médecin (modération) supprime une réponse", async () => {
     const q = await createQuestion(sara, valid);
     const r1 = await createReply(doctor, q.id, "Réponse du médecin");
     const r2 = await createReply(mohamed, q.id, "Réponse de Mohamed");
     await expectForumError(deleteReply(sara, r1.id), "FORBIDDEN");
     await deleteReply(doctor, r1.id);
-    await deleteReply(admin, r2.id);
+    await deleteReply(otherDoctor, r2.id);
     expect(await listReplies(q.id)).toHaveLength(0);
     expect(await getQuestion(q.id)).toBeDefined();
-    await expectForumError(deleteReply(admin, r2.id), "NOT_FOUND");
+    await expectForumError(deleteReply(doctor, r2.id), "NOT_FOUND");
   });
 });
 
 describe("migration de la base", () => {
-  it("passe de la v1 à la v2 sans perdre les feedbacks", async () => {
-    const v1 = await openDB(DB_NAME, 1, {
+  it("passe de la v3 (main) à la v4 sans perdre les feedbacks", async () => {
+    const v3 = await openDB(DB_NAME, 3, {
       upgrade(db) {
         db.createObjectStore("feedbacks", { keyPath: "id" });
         db.createObjectStore("deleted", { keyPath: "id" });
       },
     });
-    await v1.put("feedbacks", { id: "fb1", content: "Ancien feedback" });
-    v1.close();
+    await v3.put("feedbacks", { id: "fb1", content: "Feedback en cache" });
+    v3.close();
 
     const db = await getDB();
-    expect(db.version).toBe(2);
-    expect(await db.get("feedbacks", "fb1")).toMatchObject({ content: "Ancien feedback" });
+    expect(db.version).toBe(DB_VERSION);
+    expect(await db.get("feedbacks", "fb1")).toMatchObject({ content: "Feedback en cache" });
+    expect([...db.objectStoreNames]).toEqual(
+      expect.arrayContaining(["feedbacks", "deleted", "forumQuestions", "forumReplies"]),
+    );
+  });
+
+  it("depuis une ancienne version (avant la v3), repart de stores propres", async () => {
+    const v2 = await openDB(DB_NAME, 2, {
+      upgrade(db) {
+        db.createObjectStore("feedbacks", { keyPath: "id" });
+        db.createObjectStore("forumQuestions", { keyPath: "id" });
+      },
+    });
+    await v2.put("forumQuestions", { id: "old", title: "Ancien format" });
+    v2.close();
+
+    const db = await getDB();
+    expect(await db.get("forumQuestions", "old")).toBeUndefined();
     expect([...db.objectStoreNames]).toEqual(
       expect.arrayContaining(["feedbacks", "deleted", "forumQuestions", "forumReplies"]),
     );

@@ -1,5 +1,13 @@
-import { doctors, patients } from "@/data/mockData";
-import { getAppointments } from "@/data/appointmentStorage";
+// Keep this mock self-contained so it does not depend on a missing data module.
+const patients = [
+  { id: "p1", name: "Patient 1" },
+  { id: "p2", name: "Patient 2" },
+];
+
+const doctors = [
+  { id: 1, name: "Médecin 1", specialty: "Médecine générale" },
+  { id: 2, name: "Médecin 2", specialty: "Médecine générale" },
+];
 import type { Role } from "./feedbacks/types";
 
 export interface User {
@@ -47,12 +55,12 @@ export interface FeedbackAppointment {
 }
 
 export function listFeedbackAppointments(): FeedbackAppointment[] {
-  return getAppointments().map((a) => ({
-    id: String(a.id),
-    patient_id: a.patientId,
-    doctor_id: doctorUserId(a.doctorId),
+  return appointments.map((a) => ({
+    id: a.id,
+    patient_id: a.patient_id,
+    doctor_id: a.doctor_id,
     date: a.date,
-    done: a.status === "Terminé",
+    done: a.status === "DONE",
   }));
 }
 

@@ -26,6 +26,7 @@ const MENUS: Record<RoleSegment, MenuItem[]> = {
       match: "/patient/feedbacks",
       icon: "✎",
     },
+    { label: "Forum patients", href: "/patient/forum", icon: "❝" },
   ],
   medecin: [
     { label: "Tableau de bord", href: "/medecin", exact: true, icon: "▦" },
@@ -42,6 +43,7 @@ const MENUS: Record<RoleSegment, MenuItem[]> = {
       match: "/medecin/feedbacks",
       icon: "✎",
     },
+    { label: "Forum patients", href: "/medecin/forum", icon: "❝" },
   ],
 };
 

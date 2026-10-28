@@ -2031,3 +2031,25 @@ body {
     gap: 4px;
   }
 }
+
+/* Ajouts du forum ------------------------------------------------------- */
+@layer base {
+  /* Tailwind v4 dessine `border` en currentColor (noir) : gris discret par défaut. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-slate-200, currentColor);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}

@@ -53,6 +53,10 @@ body {
   padding: 36px 0 48px;
 }
 
+.app-main.no-sidebar {
+  margin-left: 0;
+}
+
 /* Formulaire */
 
 .rdv-form {

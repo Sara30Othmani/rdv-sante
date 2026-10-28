@@ -133,5 +133,71 @@ ok((await call(amel, "DELETE", "/api/feedbacks/uuid-review-1")).status === 403, 
 ok((await call(sarra, "DELETE", "/api/feedbacks/uuid-review-1")).status === 204, "l'auteur supprime son avis → 204");
 ok((await call(sarra, "GET", "/api/feedbacks/uuid-review-1")).status === 404, "avis supprimé → 404");
 
+// ============================================================
+// --- Module 3 : Gestion du stock médecin (Amira)
+// ============================================================
+console.log("\n--- Tests Module 3 : Gestion du stock médecin ---");
+
+// Accès & Droits
+ok((await call(null, "GET", "/api/stock")).status === 401, "stock sans identité → 401");
+ok((await call(sarra, "GET", "/api/stock")).status === 403, "patient ne peut pas accéder au stock médecin → 403");
+ok((await call(sarra, "POST", "/api/stock", { name: "Test", quantity: 5 })).status === 403, "patient ne peut pas ajouter au stock → 403");
+
+// Consultation du stock par le médecin
+const stockRes = await call(amel, "GET", "/api/stock");
+ok(stockRes.status === 200, "Dr Amel accède à son stock → 200");
+ok(stockRes.data.items && Array.isArray(stockRes.data.items), "liste des articles renvoyée");
+ok(stockRes.data.kpis && typeof stockRes.data.kpis.totalItems === "number", "kpis du stock renvoyés");
+ok(stockRes.data.kpis.lowStockCount > 0, "détection d'articles en stock faible");
+ok(stockRes.data.kpis.outOfStockCount > 0, "détection des ruptures de stock");
+ok(stockRes.data.kpis.expiringCount > 0, "détection des articles proches de l'expiration");
+
+// Ajout d'un nouvel article (matériel médical / seringues / consommables)
+const newSupply = {
+  name: "Gants stériles en latex (Boîte de 100)",
+  category: "Hygiène & Protection",
+  form: "OTHER",
+  dosage: "Taille M",
+  quantity: 25,
+  lowStockThreshold: 10,
+  unit: "boîte",
+  location: "Armoire B - Étagère 1",
+  batchNumber: "LOT-GLV-2026",
+  expiresAt: "2027-12-31",
+};
+
+const addRes = await call(amel, "POST", "/api/stock", newSupply);
+ok(addRes.status === 201, "ajout d'un nouvel article de matériel au stock → 201");
+const addedId = addRes.data.id;
+ok(addRes.data.medication.name === newSupply.name, "nom de l'article enregistré");
+ok(addRes.data.quantity === 25 && addRes.data.status === "IN_STOCK", "quantité et statut 'IN_STOCK' corrects");
+
+// Définir / modifier le seuil minimal d'alerte
+const threshRes = await call(amel, "PATCH", `/api/stock/${addedId}`, { lowStockThreshold: 30 });
+ok(threshRes.status === 200 && threshRes.data.lowStockThreshold === 30, "définir un nouveau seuil minimal → 200");
+ok(threshRes.data.status === "LOW_STOCK", "statut passe en 'LOW_STOCK' car quantité (25) ≤ seuil (30)");
+
+// Modifier la quantité : sortie de stock (soin)
+const outRes = await call(amel, "PATCH", `/api/stock/${addedId}`, {
+  action: "OUT",
+  movementQuantity: 5,
+  reason: "Utilisé lors des consultations de la journée",
+  batchNumber: "LOT-GLV-2026",
+});
+ok(outRes.status === 200 && outRes.data.quantity === 20, "sortie de 5 boîtes → stock = 20");
+
+// Historique des mouvements
+const movRes = await call(amel, "GET", `/api/stock/${addedId}/movements`);
+ok(movRes.status === 200 && movRes.data.length >= 2, "historique des mouvements tracé (entrée initiale + sortie)");
+ok(movRes.data[0].type === "OUT" && movRes.data[0].quantity === 5, "dernier mouvement enregistré est la sortie de 5");
+
+// Contrôle de sécurité : un autre médecin ne peut pas modifier cet article
+ok((await call(yassine, "PATCH", `/api/stock/${addedId}`, { action: "OUT", movementQuantity: 1 })).status === 404, "autre médecin ne peut pas modifier l'article d'Amel → 404");
+
+// Supprimer l'article du stock
+const delRes = await call(amel, "DELETE", `/api/stock/${addedId}`);
+ok(delRes.status === 200, "suppression de l'article du stock → 200");
+ok((await call(amel, "GET", `/api/stock/${addedId}`)).status === 404, "article supprimé introuvable → 404");
+
 console.log(failures === 0 ? "\nTOUS LES TESTS PASSENT" : `\n${failures} ÉCHEC(S)`);
 process.exit(failures ? 1 : 0);

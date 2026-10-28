@@ -389,6 +389,14 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
   );
 }
 
+// Next.js garde les pages visitées en mémoire (cacheComponents / <Activity>).
+// La clé sur l'URL évite de réafficher la réponse en cours, le message ou les
+// données d'une autre question (ou d'avant une modification).
+function KeyedDiscussion({ segment }: { segment: RoleSegment }) {
+  const key = useSearchParams().toString();
+  return <QuestionContent key={key} segment={segment} />;
+}
+
 export default function ForumDiscussion({ segment }: { segment: RoleSegment }) {
-  return <Suspense><QuestionContent segment={segment} /></Suspense>;
+  return <Suspense><KeyedDiscussion segment={segment} /></Suspense>;
 }

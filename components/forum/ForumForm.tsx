@@ -13,8 +13,7 @@ import { createQuestion, getQuestion, updateQuestion } from "@/lib/forum/service
 import { AlertIcon, ArrowLeftIcon, ChatIcon, InfoIcon } from "@/components/forum/icons";
 import { buttonClass, FieldFooter, inputClass, Notice, StatePanel } from "@/components/forum/ui";
 
-function FormContent({ segment }: { segment: RoleSegment }) {
-  const id = useSearchParams().get("id");
+function FormContent({ segment, id }: { segment: RoleSegment; id: string | null }) {
   const router = useRouter();
   const user = useUser();
   const routes = forumRoutes(segment);
@@ -52,6 +51,12 @@ function FormContent({ segment }: { segment: RoleSegment }) {
       const q = id
         ? await updateQuestion(user, id, { title, content })
         : await createQuestion(user, { title, content });
+      // Next.js garde la page en mémoire (cacheComponents / <Activity>) :
+      // on vide le formulaire pour que la prochaine visite reparte de zéro.
+      setTitle("");
+      setContent("");
+      setTouched({ title: false, content: false });
+      setSaving(false);
       router.push(routes.question(q.id, id ? "updated" : "created"));
     } catch (err) {
       setError((err as Error).message);
@@ -172,6 +177,12 @@ function FormContent({ segment }: { segment: RoleSegment }) {
   );
 }
 
+// La clé repart d'un état neuf quand on passe de « modifier » à « nouvelle question ».
+function KeyedForm({ segment }: { segment: RoleSegment }) {
+  const id = useSearchParams().get("id");
+  return <FormContent key={id ?? "new"} segment={segment} id={id} />;
+}
+
 export default function ForumForm({ segment }: { segment: RoleSegment }) {
-  return <Suspense><FormContent segment={segment} /></Suspense>;
+  return <Suspense><KeyedForm segment={segment} /></Suspense>;
 }

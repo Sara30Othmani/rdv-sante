@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
-import Sidebar from "@/components/Sidebar";
-import PwaRegister from "@/components/PwaRegister";
+import AppShell from "@/components/AppShell";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -43,11 +42,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        <PwaRegister />
-        <div className="app-shell">
-          <Sidebar />
-          <div className="app-main">{children}</div>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

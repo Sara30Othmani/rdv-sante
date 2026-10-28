@@ -2,13 +2,32 @@ const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 let failures = 0;
 const ok = (c, m, extra = "") => { console.log((c ? "OK   " : "FAIL ") + m + (c ? "" : "  " + extra)); if (!c) failures++; };
 
-const users = await (await fetch(`${BASE}/api/users`)).json();
-const U = Object.fromEntries(users.map(u => [u.name.split(" ")[0].replace("Dr.", "") || u.name, u]));
-const by = (n) => users.find(u => u.name.includes(n));
-const sarra = by("Sarra"), ahmed = by("Ahmed"), amel = by("Amel"), yassine = by("Yassine"), mariem = by("Mariem");
+// Connexion par e-mail / mot de passe (cookies de session).
+const DEMO = "Demo1234";
+async function login(email) {
+  const res = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: DEMO }),
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`login ${email} → ${res.status}`);
+  return await res.json();
+}
+
+const sarra = await login("sarra@demo.tn");
+const ahmed = await login("ahmed@demo.tn");
+const amel = await login("amel@demo.tn");
+const yassine = await login("yassine@demo.tn");
+const mariem = await login("mariem@demo.tn");
 
 const call = async (user, method, path, body) => {
-  const res = await fetch(BASE + path, { method, headers: { "Content-Type": "application/json", ...(user ? { "x-user-id": user.id } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  const res = await fetch(BASE + path, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: "include",
+  });
   let data = null; try { data = await res.json(); } catch {}
   return { status: res.status, data };
 };

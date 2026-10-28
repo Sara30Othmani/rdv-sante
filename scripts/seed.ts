@@ -10,6 +10,7 @@ import Appointment from "@/models/Appointment";
 import FeedbackModel from "@/models/Feedback";
 import Medication from "@/models/Medication";
 import StockItem from "@/models/StockItem";
+import { hashPassword } from "@/lib/password";
 
 async function main() {
   if (process.env.NODE_ENV === "production") {
@@ -26,13 +27,15 @@ async function main() {
     StockItem.deleteMany({}),
   ]);
 
-  // ---- Utilisateurs (mots de passe : à créer avec le module d'authentification)
+  const demoPassword = await hashPassword("Demo1234");
+
+  // ---- Utilisateurs (mots de passe créés via le module d'authentification)
   const [sarra, ahmed, amel, yassine, mariem] = await UserModel.insertMany([
-    { name: "Sarra Ben Ali", email: "sarra@demo.tn", role: "PATIENT" },
-    { name: "Ahmed Mansour", email: "ahmed@demo.tn", role: "PATIENT" },
-    { name: "Dr. Amel Ben Salem", email: "amel@demo.tn", role: "DOCTOR" },
-    { name: "Dr. Yassine Trabelsi", email: "yassine@demo.tn", role: "DOCTOR" },
-    { name: "Dr. Mariem Gharbi", email: "mariem@demo.tn", role: "DOCTOR" },
+    { name: "Sarra Ben Ali", email: "sarra@demo.tn", passwordHash: demoPassword, role: "PATIENT", emailVerified: true },
+    { name: "Ahmed Mansour", email: "ahmed@demo.tn", passwordHash: demoPassword, role: "PATIENT", emailVerified: true },
+    { name: "Dr. Amel Ben Salem", email: "amel@demo.tn", passwordHash: demoPassword, role: "DOCTOR", emailVerified: true },
+    { name: "Dr. Yassine Trabelsi", email: "yassine@demo.tn", passwordHash: demoPassword, role: "DOCTOR", emailVerified: true },
+    { name: "Dr. Mariem Gharbi", email: "mariem@demo.tn", passwordHash: demoPassword, role: "DOCTOR", emailVerified: true },
   ]);
 
   await DoctorProfile.insertMany([
@@ -114,6 +117,8 @@ async function main() {
   ]);
 
   console.log("✔ Données de démonstration créées.");
+  console.log("   Identifiants : sarra@demo.tn / ahmed@demo.tn / amel@demo.tn / yassine@demo.tn / mariem@demo.tn");
+  console.log("   Mot de passe : Demo1234");
 }
 
 main()

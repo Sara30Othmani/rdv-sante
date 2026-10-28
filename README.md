@@ -60,10 +60,15 @@ scripts/                                     seed.ts (données de démo) · api-
 | Fichier `lib/` | Rôle |
 |---|---|
 | `mongodb.ts` | connexion MongoDB mise en cache |
-| `auth.ts` | identifie l'utilisateur côté serveur (**version démo**, à remplacer) |
-| `session.ts` | session de démonstration côté navigateur |
+| `auth.ts` | identifie l'utilisateur côté serveur (cookie `access_token` + JWT vérifié) |
+| `password.ts` | hachage bcrypt + validation de force |
+| `tokens.ts` | JWT access/refresh + tokens aléatoires (vérification / réinitialisation) |
+| `mailer.ts` | envoi d'e-mails via Mailtrap (vérification, réinitialisation) |
+| `cookies.ts` | lecture/écriture des cookies de session (côté serveur) |
+| `session.ts` | session côté navigateur (cache en mémoire, réactive via `useSession`) |
+| `auth-client.ts` | hook `useAuth` : charge l'utilisateur depuis `/api/auth/me` |
 | `roles.ts` | correspondance segment d'URL ↔ rôle, routes des feedbacks |
-| `api.ts` | `fetch` qui joint l'identité à chaque appel |
+| `api.ts` | `fetch` avec `credentials: "include"` |
 | `appointments.ts` | types et statuts des rendez-vous |
 | `useAppointments.ts` | hooks de chargement (rendez-vous, médecins) |
 | `feedbacks/rules.ts` | règles métier (qui voit, modifie, répond, supprime) |
@@ -136,7 +141,14 @@ Un accès à la ressource d'un autre utilisateur renvoie **404** (et non 403), p
 
 | Route | Méthodes | Rôle |
 |---|---|---|
-| `/api/users` | GET | profils de démonstration (désactivé si `ALLOW_DEMO_LOGIN` ≠ `true`) |
+| `/api/auth/login` | POST | connexion (e-mail / mot de passe) → cookies |
+| `/api/auth/register` | POST | inscription + envoi e-mail de vérification |
+| `/api/auth/logout` | POST | déconnexion (supprime les cookies) |
+| `/api/auth/me` | GET | l'utilisateur connecté (session) |
+| `/api/auth/refresh` | POST | rafraîchit le token d'accès |
+| `/api/auth/forgot-password` | POST | envoie un lien de réinitialisation |
+| `/api/auth/reset-password` | POST | réinitialise le mot de passe |
+| `/api/auth/verify-email` | POST | vérifie l'adresse e-mail |
 | `/api/doctors` | GET | médecins vérifiés, note moyenne, réservations en cours |
 | `/api/appointments` | GET, POST | liste (filtrée par profil), création |
 | `/api/appointments/[id]` | PATCH | modification selon le rôle |
@@ -158,10 +170,9 @@ Prérequis : Node.js 20.6 ou plus.
 
 ```bash
 npm install
-npm i -D eslint@9          # si ERESOLVE (eslint-config-next 16 exige ESLint ≥ 9)
-npm i mongoose idb
-npm i -D tsx
-cp .env.example .env.local # puis renseigner MONGODB_URI
+npm i mongoose idb bcryptjs jsonwebtoken nodemailer
+npm i -D tsx @types/bcryptjs @types/jsonwebtoken @types/nodemailer
+cp .env.example .env.local # puis renseigner MONGODB_URI et Mailtrap
 ```
 
 `.env.local` :
@@ -169,7 +180,22 @@ cp .env.example .env.local # puis renseigner MONGODB_URI
 ```
 MONGODB_URI=mongodb+srv://user:motdepasse@cluster0.xxxxx.mongodb.net/rdv_sante?retryWrites=true&w=majority
 # ou en local : mongodb://127.0.0.1:27017/rdv_sante
-ALLOW_DEMO_LOGIN=true
+
+# Authentification (JWT)
+JWT_ACCESS_SECRET=...
+JWT_REFRESH_SECRET=...
+JWT_ACCESS_EXPIRES=15m
+JWT_REFRESH_EXPIRES=7d
+
+# Mailtrap (vérification d'e-mail / réinitialisation)
+MAILTRAP_HOST=smtp.mailtrap.io
+MAILTRAP_PORT=587
+MAILTRAP_USER=...
+MAILTRAP_PASS=
+MAILTRAP_FROM=RDV Santé <noreply@rdv-sante.local>
+
+# Application
+APP_URL=http://localhost:3000
 ```
 
 Charger les données de démonstration (⚠ **vide** les collections, développement uniquement) :
@@ -178,7 +204,9 @@ Charger les données de démonstration (⚠ **vide** les collections, développe
 npx tsx --env-file=.env.local scripts/seed.ts
 ```
 
-Lancer : `npm run dev` puis ouvrir http://localhost:3000 et choisir un profil.
+Identifiants de démo : `sarra@demo.tn`, `ahmed@demo.tn`, `amel@demo.tn`, `yassine@demo.tn`, `mariem@demo.tn` — mot de passe `Demo1234`.
+
+Lancer : `npm run dev` puis ouvrir http://localhost:3000.
 
 Scripts conseillés dans `package.json` :
 

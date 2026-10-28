@@ -1,32 +1,55 @@
-import { Types } from "mongoose";
 import type { Role } from "@/lib/feedbacks/types";
 import UserModel from "@/models/User";
 import { connectDB } from "./mongodb";
 import { fail } from "./http";
+import { verifyAccessToken } from "./tokens";
 
 export type AuthUser = { id: string; name: string; role: Role };
 
+/** Lit un cookie depuis l'en-tête `Cookie` de la requête. */
+function getCookieFromHeader(req: Request, name: string): string | null {
+  const header = req.headers.get("cookie");
+  if (!header) return null;
+  for (const pair of header.split(";")) {
+    const eq = pair.indexOf("=");
+    if (eq === -1) continue;
+    const key = pair.slice(0, eq).trim();
+    if (key === name) return decodeURIComponent(pair.slice(eq + 1).trim());
+  }
+  return null;
+}
+
+/** Cookie `access_token` (session). */
+export function getAccessCookie(req: Request): string | null {
+  return getCookieFromHeader(req, "access_token");
+}
+
+/** Cookie `refresh_token` (pour rafraîchir la session). */
+export function getRefreshCookie(req: Request): string | null {
+  return getCookieFromHeader(req, "refresh_token");
+}
+
 /**
- * ⚠ MODE DÉMO — seule fonction à remplacer quand le vrai module
- * d'authentification sera branché (cookie de session, JWT, Auth.js…).
- *
- * Ici l'identité vient de l'en-tête `x-user-id`, que n'importe qui peut
- * falsifier. C'est pourquoi tout est désactivé tant que
- * ALLOW_DEMO_LOGIN n'est pas "true".
+ * Utilisateur connecté (cookie `access_token`), ou null.
+ * ⇿ Le token est vérifié côté serveur : l'identité n'est pas falsifiable.
  */
 export async function getCurrentUser(req: Request): Promise<AuthUser | null> {
-  if (process.env.ALLOW_DEMO_LOGIN !== "true") return null;
+  const token = getAccessCookie(req);
+  if (!token) return null;
 
-  const id = req.headers.get("x-user-id");
-  if (!id || !Types.ObjectId.isValid(id)) return null;
+  const payload = verifyAccessToken(token);
+  if (!payload) return null;
 
-  await connectDB();
-  const user = await UserModel.findOne({ _id: id, isActive: true })
-    .select("name role")
-    .lean();
-  if (!user) return null;
-
-  return { id: String(user._id), name: user.name, role: user.role };
+  try {
+    await connectDB();
+    const user = await UserModel.findOne({ _id: payload.sub, isActive: true })
+      .select("name role")
+      .lean();
+    if (!user) return null;
+    return { id: String(user._id), name: user.name, role: user.role };
+  } catch {
+    return null;
+  }
 }
 
 type Auth =

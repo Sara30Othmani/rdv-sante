@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { openDB } from "idb";
 import { beforeEach, describe, expect, it } from "vitest";
-import { getDB, DB_NAME, DB_VERSION } from "../db";
+import { getDB, DB_NAME, DB_VERSION, DBBlockedError } from "../db";
 import {
   createQuestion, createReply, deleteQuestion, deleteReply, ForumError, getQuestion,
   listQuestions, listReplies, updateQuestion, updateReply,
@@ -191,6 +191,25 @@ describe("migration de la base", () => {
     expect([...db.objectStoreNames]).toEqual(
       expect.arrayContaining(["feedbacks", "deleted", "forumQuestions", "forumReplies"]),
     );
+  });
+
+  it("signale un ancien onglet qui bloque la mise à jour au lieu d'attendre indéfiniment", async () => {
+    const oldTab = await openDB(DB_NAME, 3, {
+      upgrade(db) {
+        db.createObjectStore("feedbacks", { keyPath: "id" });
+      },
+    }); // connexion laissée ouverte, comme un onglet resté sur l'ancienne version
+
+    const err = await getDB().then(() => null, (e) => e);
+    expect(err).toBeInstanceOf(DBBlockedError);
+
+    oldTab.close();
+    const db = await getDB(); // l'appel suivant réessaie et réussit
+    expect(db.version).toBe(DB_VERSION);
+  });
+
+  it("réutilise la même connexion", async () => {
+    expect(await getDB()).toBe(await getDB());
   });
 
   it("depuis une ancienne version (avant la v3), repart de stores propres", async () => {

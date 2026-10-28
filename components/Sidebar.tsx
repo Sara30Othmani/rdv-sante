@@ -39,6 +39,12 @@ const MENUS: Record<RoleSegment, MenuItem[]> = {
     { label: "Tableau de bord", href: "/medecin", exact: true, icon: "▦" },
     { label: "Rendez-vous patients", href: "/medecin/rendez-vous", icon: "▣" },
     {
+      label: "Gestion du stock",
+      href: "/medecin/stock",
+      match: "/medecin/stock",
+      icon: "📦",
+    },
+    {
       label: "Réclamations & feedback",
       href: "/medecin/feedbacks/dashboard",
       match: "/medecin/feedbacks",

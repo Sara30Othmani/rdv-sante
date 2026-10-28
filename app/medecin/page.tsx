@@ -6,6 +6,7 @@ import KpiCard from "@/components/KpiCard";
 import { CLOSED_STATUSES, STATUS_CLASSES } from "@/lib/appointments";
 import { useAppointments } from "@/lib/useAppointments";
 import { useFeedbacks } from "@/lib/feedbacks/useFeedbacks";
+import { useStock } from "@/lib/stock/useStock";
 import { feedbackRoutes } from "@/lib/roles";
 
 const routes = feedbackRoutes("medecin");
@@ -29,10 +30,11 @@ function formatDate(date: string) {
 export default function MedecinHomePage() {
   const [today] = useState(todayISO);
 
-  // Les deux hooks ne renvoient déjà que les données du médecin connecté :
+  // Les hooks ne renvoient déjà que les données du médecin connecté :
   // la page n'a besoin ni de l'utilisateur ni de filtrer.
   const { appointments, loaded: apptLoaded, error: apptError } = useAppointments();
   const { items: received, loading: fbLoading, error: fbError } = useFeedbacks();
+  const { kpis: stockKpis, loading: stockLoading, error: stockError } = useStock();
 
   // ---- Rendez-vous
   const upcoming = appointments
@@ -53,6 +55,9 @@ export default function MedecinHomePage() {
 
   const a = apptLoaded ? undefined : "–"; // « – » tant que les données ne sont pas là
   const f = fbLoading ? "–" : undefined;
+  const s = stockLoading ? "–" : undefined;
+
+  const stockAlerts = stockKpis.lowStockCount + stockKpis.outOfStockCount;
 
   return (
     <main className="appointments-page">
@@ -62,13 +67,18 @@ export default function MedecinHomePage() {
           <h1>Tableau de bord</h1>
           <p>Voici l&apos;état de votre activité.</p>
         </div>
-        <Link href="/medecin/rendez-vous" className="btn-prendre-rdv">
-          Gérer les rendez-vous
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/medecin/stock" className="btn-secondary text-sm font-semibold px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-100 transition-colors">
+            Gérer le stock
+          </Link>
+          <Link href="/medecin/rendez-vous" className="btn-prendre-rdv">
+            Gérer les rendez-vous
+          </Link>
+        </div>
       </header>
 
-      {(apptError || fbError) && (
-        <p className="text-sm text-red-600">{apptError || fbError}</p>
+      {(apptError || fbError || stockError) && (
+        <p className="text-sm text-red-600">{apptError || fbError || stockError}</p>
       )}
 
       <section aria-labelledby="kpi-rdv">
@@ -129,17 +139,52 @@ export default function MedecinHomePage() {
         </div>
       </section>
 
-      {/* Les prochains modules s'ajoutent ici, avec le même composant <KpiCard /> */}
+      {/* Module 3 : Gestion du stock médical (Amira) */}
       <section aria-labelledby="kpi-stock">
-        <h2 id="kpi-stock" className="dashboard-section-title">
-          Stock de médicaments
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 id="kpi-stock" className="dashboard-section-title mb-0">
+            Stock médical &amp; Consommables
+          </h2>
+          <Link
+            href="/medecin/stock"
+            className="text-xs font-semibold text-teal-700 hover:text-teal-800 hover:underline"
+          >
+            Accéder à l&apos;inventaire complet →
+          </Link>
+        </div>
         <div className="kpi-grid">
           <KpiCard
-            label="Stock"
-            value="Bientôt"
-            hint="Alertes de stock bas et de péremption"
-            tone="muted"
+            label="Références en stock"
+            value={s ?? stockKpis.totalItems}
+            hint={`${stockKpis.totalQuantity} unités au total`}
+            tone="teal"
+            href="/medecin/stock"
+          />
+          <KpiCard
+            label="Alertes stock &amp; ruptures"
+            value={s ?? stockAlerts}
+            hint={
+              stockKpis.outOfStockCount > 0
+                ? `${stockKpis.outOfStockCount} rupture(s) critique(s)`
+                : stockKpis.lowStockCount > 0
+                ? `${stockKpis.lowStockCount} article(s) à réapprovisionner`
+                : "Stock optimal"
+            }
+            tone={stockKpis.outOfStockCount > 0 ? "red" : stockAlerts > 0 ? "amber" : "green"}
+            href="/medecin/stock"
+          />
+          <KpiCard
+            label="Alertes péremption"
+            value={s ?? stockKpis.expiringCount}
+            hint={
+              stockKpis.expiredCount > 0
+                ? `${stockKpis.expiredCount} lot(s) déjà périmé(s) !`
+                : stockKpis.expiringCount > 0
+                ? "Expire dans moins de 30 jours"
+                : "Tous les lots sont valides"
+            }
+            tone={stockKpis.expiredCount > 0 ? "red" : stockKpis.expiringCount > 0 ? "amber" : "green"}
+            href="/medecin/stock"
           />
         </div>
       </section>

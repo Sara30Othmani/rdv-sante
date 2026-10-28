@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import Sidebar from "@/components/Sidebar";
 import PwaRegister from "@/components/PwaRegister";
@@ -45,7 +45,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="min-h-full">
         <PwaRegister />
         <div className="app-shell">
-          <Sidebar />
+          <Suspense fallback={<aside className="sidebar" />}>
+            <Sidebar />
+          </Suspense>
           <div className="app-main">{children}</div>
         </div>
       </body>

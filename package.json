@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "test:api": "node scripts/api-test.mjs"
   },
   "dependencies": {
     "idb": "^8.0.4",

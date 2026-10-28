@@ -5,7 +5,7 @@ import type { Role } from "./feedbacks/types";
 export interface User {
   id: string;
   name: string;
-  role: Role;
+  role: Role | "ADMIN";
   specialty?: string;
 }
 

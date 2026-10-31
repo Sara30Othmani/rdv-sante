@@ -18,6 +18,7 @@ const schema = new Schema(
       default: "PENDING",
     },
     notes: { type: String, default: "", maxlength: 2000 },
+    cancelReason: { type: String, maxlength: 500 }, // motif saisi par le patient à l'annulation
     price: Number,
   },
   { timestamps: true }

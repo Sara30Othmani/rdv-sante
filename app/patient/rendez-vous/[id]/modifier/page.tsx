@@ -3,12 +3,13 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { CLOSED_STATUSES, type Appointment } from "@/lib/appointments";
+import type { Appointment } from "@/lib/appointments";
 import {
   patchAppointment,
   useAppointments,
   useDoctors,
 } from "@/lib/useAppointments";
+import { slotsForDate } from "@/lib/schedule";
 
 function todayISO() {
   const d = new Date();
@@ -28,17 +29,22 @@ function ModifierForm({ appointment }: { appointment: Appointment }) {
   const [error, setError] = useState("");
   const { doctors } = useDoctors();
 
-  // Même créneaux que pour une nouvelle réservation (+ l'heure actuelle si elle n'y figure plus)
+  // Créneaux que le médecin propose CE jour-là (+ l'heure actuelle si la date n'a pas changé)
   const doctor = doctors.find((d) => d.id === appointment.doctorId);
   const slots = [
-    ...new Set([appointment.time, ...(doctor?.availableSlots ?? [])]),
+    ...new Set([
+      ...(date === appointment.date ? [appointment.time] : []),
+      ...(doctor ? slotsForDate(doctor.schedule, date) : []),
+    ]),
   ].sort();
+  // Si la date change et que l'heure choisie n'existe plus ce jour-là, on prend le 1er créneau
+  const effectiveTime = slots.includes(time) ? time : (slots[0] ?? "");
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     try {
-      await patchAppointment(appointment.id, { date, time, reason: reason.trim() });
+      await patchAppointment(appointment.id, { date, time: effectiveTime, reason: reason.trim() });
       router.push(detailUrl);
     } catch (err) {
       setError((err as Error).message);
@@ -85,9 +91,10 @@ function ModifierForm({ appointment }: { appointment: Appointment }) {
           <select
             id="time"
             required
-            value={time}
+            value={effectiveTime}
             onChange={(e) => setTime(e.target.value)}
           >
+            {slots.length === 0 && <option value="">Aucun créneau ce jour-là</option>}
             {slots.map((slot) => (
               <option key={slot} value={slot}>
                 {slot}
@@ -154,12 +161,16 @@ export default function ModifierRDV() {
     );
   }
 
-  // Le statut est géré par le médecin : un patient ne modifie pas un rendez-vous clôturé.
-  if (CLOSED_STATUSES.includes(appointment.status)) {
+  // Seule une demande « En attente » est modifiable : accepté, le rendez-vous est figé.
+  if (appointment.status !== "En attente") {
     return (
       <main className="rdv-page">
         <h1>Modification impossible</h1>
-        <p>Ce rendez-vous est clôturé ({appointment.status}).</p>
+        <p>
+          {appointment.status === "Accepté"
+            ? "Ce rendez-vous a été confirmé par le médecin : il ne peut plus être modifié. Pour changer d'horaire, annulez-le depuis la liste puis reprenez rendez-vous."
+            : `Ce rendez-vous est clôturé (${appointment.status}).`}
+        </p>
         <Link href={`/patient/rendez-vous/${appointment.id}`} className="rdv-back">
           ← Retour au détail
         </Link>

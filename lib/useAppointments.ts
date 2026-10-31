@@ -57,7 +57,7 @@ export async function createAppointment(data: NewAppointment) {
 
 export async function patchAppointment(
   id: string,
-  changes: Partial<Pick<Appointment, "date" | "time" | "reason" | "status" | "notes">>
+  changes: Partial<Pick<Appointment, "date" | "time" | "reason" | "status" | "notes" | "cancelReason">>
 ) {
   const updated = await apiJson<Appointment>(`/api/appointments/${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -67,32 +67,50 @@ export async function patchAppointment(
   return updated;
 }
 
+
 /** Liste des médecins vérifiés (avec note moyenne). */
 export function useDoctors() {
   const { user } = useSession();
-  const userId = user?.id ?? null;
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!userId) return;
     let cancelled = false;
-    apiJson<Doctor[]>("/api/doctors")
-      .then((data) => {
-        if (!cancelled) setDoctors(data);
-      })
-      .catch((e: Error) => {
-        if (!cancelled) setError(e.message || "Chargement impossible.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoaded(true);
-      });
+
+    async function loadDoctors() {
+      try {
+        setLoaded(false);
+        setError("");
+
+        const data = await apiJson<Doctor[]>("/api/doctors");
+
+        if (!cancelled) {
+          setDoctors(data);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(
+            e instanceof Error
+              ? e.message
+              : "Chargement des médecins impossible."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoaded(true);
+        }
+      }
+    }
+
+    loadDoctors();
+
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [user?.id]);
 
   return { doctors, loaded, error };
 }
+

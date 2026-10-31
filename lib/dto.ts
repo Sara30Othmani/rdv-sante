@@ -20,6 +20,7 @@ export function toAppointmentDTO(a: WithId<AppointmentDoc>): Appointment {
     reason: a.reason,
     status: STATUS_LABEL[a.status],
     notes: a.notes ?? "",
+    cancelReason: a.cancelReason ?? undefined,
   };
 }
 

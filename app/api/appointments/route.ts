@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { fail, isDuplicateKey, json, serverError } from "@/lib/http";
 import { toAppointmentDTO } from "@/lib/dto";
 import { isISODate, isTime, type NewAppointment } from "@/lib/appointments";
+import { getScheduleOf, slotsForDate } from "@/lib/schedule";
 
 /** Patient : ses rendez-vous. Médecin : ceux pris chez lui. */
 export async function GET(req: Request) {
@@ -54,8 +55,8 @@ export async function POST(req: Request) {
         .lean(),
     ]);
     if (!profile || !doctor) return fail(404, "Médecin introuvable.");
-    if (!profile.availableSlots.includes(body.time))
-      return fail(400, "Ce créneau n'est pas proposé par ce médecin.");
+    if (!slotsForDate(getScheduleOf(profile), body.date).includes(body.time))
+      return fail(400, "Ce créneau n'est pas proposé par ce médecin ce jour-là.");
 
     try {
       const created = await Appointment.create({

@@ -3,25 +3,13 @@
 import { Suspense, useMemo, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createAppointment, useDoctors } from "@/lib/useAppointments";
+import { slotsForDate, upcomingWorkingDates } from "@/lib/schedule";
 
 function toLocalISODate(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function getBusinessDays(count: number) {
-  const dates: Date[] = [];
-  const current = new Date();
-  current.setHours(12, 0, 0, 0);
-
-  while (dates.length < count) {
-    const day = current.getDay();
-    if (day !== 0 && day !== 6) dates.push(new Date(current));
-    current.setDate(current.getDate() + 1);
-  }
-  return dates;
 }
 
 function formatDate(date: Date) {
@@ -53,8 +41,12 @@ function NouveauRDVContent() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const dates = useMemo(() => getBusinessDays(15), []);
-  const slots = doctor?.availableSlots ?? [];
+  // Seuls les jours où le médecin travaille sont proposés, avec SES créneaux
+  const dates = useMemo(
+    () => (doctor ? upcomingWorkingDates(doctor.schedule, 15) : []),
+    [doctor]
+  );
+  const slots = doctor && date ? slotsForDate(doctor.schedule, date) : [];
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -139,6 +131,12 @@ function NouveauRDVContent() {
           <div className="booking-date-section">
             <h3>Sélectionner une date</h3>
 
+            {dates.length === 0 && (
+              <p className="booking-hint">
+                Ce médecin n&apos;a pas de disponibilité prochainement.
+              </p>
+            )}
+
             <div className="booking-date-list">
               {dates.map((day) => {
                 const value = toLocalISODate(day);
@@ -159,7 +157,7 @@ function NouveauRDVContent() {
                     <span>
                       {formatted.weekday} {formatted.label}
                     </span>
-                    <small>{slots.length} créneaux</small>
+                    <small>{slotsForDate(doctor.schedule, value).length} créneaux</small>
                   </button>
                 );
               })}

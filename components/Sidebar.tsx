@@ -30,6 +30,7 @@ const MENUS: Record<RoleSegment, MenuItem[]> = {
   ],
   medecin: [
     { label: "Tableau de bord", href: "/medecin", exact: true, icon: "▦" },
+    { label: "Profile", href: "/medecin/profil", icon: "▣" },
     { label: "Rendez-vous patients", href: "/medecin/rendez-vous", icon: "▣" },
     {
       label: "Gestion du stock",

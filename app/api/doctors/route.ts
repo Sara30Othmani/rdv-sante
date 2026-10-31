@@ -6,6 +6,7 @@ import { connectDB } from "@/lib/mongodb";
 import { requireUser } from "@/lib/auth";
 import { json, serverError } from "@/lib/http";
 import { ACTIVE_CODES, type Doctor } from "@/lib/appointments";
+import { getScheduleOf } from "@/lib/schedule";
 
 const initialsOf = (name: string) =>
   name
@@ -55,7 +56,7 @@ export async function GET(req: Request) {
           address: p.address ?? "",
           city: p.city,
           price: p.price ?? 0,
-          availableSlots: p.availableSlots,
+          schedule: getScheduleOf(p),
           initials: initialsOf(name),
           reservations: reservedOf.get(id) ?? 0,
           ratingAvg: rating ? rating.avg : null,
@@ -63,8 +64,8 @@ export async function GET(req: Request) {
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name, "fr"));
-
     return json(doctors);
+
   } catch (e) {
     return serverError(e);
   }

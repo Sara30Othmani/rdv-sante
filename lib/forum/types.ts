@@ -14,6 +14,9 @@ export interface ForumQuestion {
   created_at: string;
   updated_at: string;
   syncStatus: "synced" | "pending";
+  isClosed?: boolean;
+  closedAt?: string;
+  closedBy?: string;
 }
 
 export interface ForumReply {
@@ -32,6 +35,7 @@ export interface ForumReply {
 export interface ForumQuestionSummary extends ForumQuestion {
   replyCount: number;
   lastReply?: ForumReply;
+  hasDoctorReply?: boolean;
 }
 
 /** Utilisateur qui agit : même forme que la session (lib/session.ts). */

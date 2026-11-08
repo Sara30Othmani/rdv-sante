@@ -14,6 +14,7 @@ import {
   canEditReply,
   canReply,
   cleanText,
+  isQuestionClosed,
   validateQuestion,
   validateReply,
 } from "./rules";
@@ -61,11 +62,19 @@ export async function listQuestions(): Promise<ForumQuestionSummary[]> {
   return questions
     .map((q) => {
       const list = byQuestion.get(q.id) ?? [];
+      const hasDoctorReply = list.some((r) => r.author_role === "DOCTOR");
+      const isClosed = Boolean(q.isClosed || hasDoctorReply);
       const lastReply = list.reduce<ForumReply | undefined>(
         (last, r) => (!last || r.created_at > last.created_at ? r : last),
         undefined,
       );
-      return { ...q, replyCount: list.length, lastReply };
+      return {
+        ...q,
+        isClosed,
+        hasDoctorReply,
+        replyCount: list.length,
+        lastReply,
+      };
     })
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
@@ -101,6 +110,7 @@ export async function createQuestion(
     created_at: t,
     updated_at: t,
     syncStatus: "pending",
+    isClosed: false,
   };
   await (await getDB()).add("forumQuestions", question);
   return question;
@@ -117,11 +127,14 @@ export async function updateQuestion(
   const old = await tx.store.get(id);
   if (!old) throw new ForumError("Question introuvable.", "NOT_FOUND");
   if (!canEditQuestion(old, user))
-    throw new ForumError("Vous ne pouvez modifier que vos propres questions.", "FORBIDDEN");
+    throw new ForumError(
+      old.isClosed
+        ? "Cette question est clôturée et ne peut plus être modifiée."
+        : "Vous ne pouvez modifier que vos propres questions.",
+      "FORBIDDEN",
+    );
   assertValid(validateQuestion(input));
 
-  // Seuls le titre et le contenu sont modifiables : id, auteur et date
-  // de création viennent de l'enregistrement existant.
   const next: ForumQuestion = {
     ...old,
     title: cleanText(input.title),
@@ -164,16 +177,31 @@ export async function createReply(
   content: unknown,
 ): Promise<ForumReply> {
   const user = requireActor(actor);
-  if (!canReply(user))
-    throw new ForumError("Vous ne pouvez pas répondre à cette question.", "FORBIDDEN");
   assertValid(validateReply(content));
 
   const db = await getDB();
-  // La question est relue dans la même transaction : pas de réponse
-  // orpheline si elle a été supprimée entre-temps.
+  // Transaction atomique sur les questions et les réponses
   const tx = db.transaction(["forumQuestions", "forumReplies"], "readwrite");
-  const question = await tx.objectStore("forumQuestions").get(questionId);
+  const qStore = tx.objectStore("forumQuestions");
+  const rStore = tx.objectStore("forumReplies");
+
+  const question = await qStore.get(questionId);
   if (!question) throw new ForumError("Question introuvable.", "NOT_FOUND");
+
+  // Vérifier si un médecin a déjà répondu ou si la question est déjà clôturée
+  const existingReplies = await rStore.index("by-question").getAll(questionId);
+  const alreadyClosed = isQuestionClosed(question, existingReplies);
+
+  if (alreadyClosed) {
+    throw new ForumError(
+      "Cette question est clôturée suite à la réponse d'un médecin. Aucune autre réponse ne peut être ajoutée.",
+      "FORBIDDEN",
+    );
+  }
+
+  if (!canReply(user, question, existingReplies)) {
+    throw new ForumError("Vous ne pouvez pas répondre à cette question.", "FORBIDDEN");
+  }
 
   const t = now();
   const reply: ForumReply = {
@@ -187,7 +215,21 @@ export async function createReply(
     updated_at: t,
     syncStatus: "pending",
   };
-  await tx.objectStore("forumReplies").add(reply);
+
+  await rStore.add(reply);
+
+  // RÈGLE MÉTIER : Si un médecin répond, la question est clôturée définitivement
+  if (user.role === "DOCTOR") {
+    const updatedQuestion: ForumQuestion = {
+      ...question,
+      isClosed: true,
+      closedAt: t,
+      closedBy: user.name,
+      updated_at: t,
+    };
+    await qStore.put(updatedQuestion);
+  }
+
   await tx.done;
   return reply;
 }
@@ -241,9 +283,11 @@ export async function syncPendingForum() {
   const replies = tx.objectStore("forumReplies");
   const [qs, rs] = await Promise.all([questions.getAll(), replies.getAll()]);
   await Promise.all([
-    ...qs.filter((q) => q.syncStatus === "pending")
+    ...qs
+      .filter((q) => q.syncStatus === "pending")
       .map((q) => questions.put({ ...q, syncStatus: "synced" })),
-    ...rs.filter((r) => r.syncStatus === "pending")
+    ...rs
+      .filter((r) => r.syncStatus === "pending")
       .map((r) => replies.put({ ...r, syncStatus: "synced" })),
   ]);
   await tx.done;
@@ -260,15 +304,20 @@ export async function seedForumIfEmpty() {
   }
   const t = now();
   const base = { created_at: t, updated_at: t, syncStatus: "synced" as const };
+
+  // 1. Question 1 : Clôturée car répondue par un médecin
   await tx.objectStore("forumQuestions").put({
     ...base,
     id: "forum-demo1",
     author_id: "demo-patient",
     author_name: "Ahmed Mansour",
     author_role: "PATIENT",
-    title: "Comment préparer une première consultation ?",
+    title: "Comment préparer une première consultation avec un cardiologue ?",
     content:
-      "Je vais voir un cardiologue pour la première fois. Quels documents faut-il apporter au rendez-vous ?",
+      "Je vais voir un cardiologue pour la première fois. Quels documents faut-il apporter au rendez-vous et faut-il venir à jeun ?",
+    isClosed: true,
+    closedAt: t,
+    closedBy: "Dr. Amel Ben Salem",
   });
   await tx.objectStore("forumReplies").put({
     ...base,
@@ -278,7 +327,31 @@ export async function seedForumIfEmpty() {
     author_name: "Dr. Amel Ben Salem",
     author_role: "DOCTOR",
     content:
-      "Apportez votre carte de soins, vos ordonnances en cours et vos derniers résultats d'analyses. Notez aussi vos questions à l'avance.",
+      "Bonjour M. Mansour. Pour un premier bilan cardiologique : apportez votre carte d'assuré, vos dernières ordonnances en cours, vos bilans sanguins récents et tout électrocardiogramme antérieur si vous en possédez. Il n'est généralement pas nécessaire d'être à jeun sauf si une prise de sang spécifique a été prescrite à l'avance.",
   });
+
+  // 2. Question 2 : Question ouverte en attente de réponse médicale
+  await tx.objectStore("forumQuestions").put({
+    ...base,
+    id: "forum-demo2",
+    author_id: "demo-patient-2",
+    author_name: "Sarra Ben Ali",
+    author_role: "PATIENT",
+    title: "Recommandations avant une consultation dermatologique",
+    content:
+      "Bonjour, je dois consulter un dermatologue pour surveiller des grains de beauté. Dois-je éviter d'appliquer des crèmes ou du maquillage le jour J ?",
+    isClosed: false,
+  });
+  await tx.objectStore("forumReplies").put({
+    ...base,
+    id: "forum-demo2-r1",
+    question_id: "forum-demo2",
+    author_id: "demo-patient",
+    author_name: "Ahmed Mansour",
+    author_role: "PATIENT",
+    content:
+      "D'expérience, le dermatologue m'avait demandé d'avoir une peau propre sans crème pour bien observer avec le dermatoscope !",
+  });
+
   await tx.done;
 }

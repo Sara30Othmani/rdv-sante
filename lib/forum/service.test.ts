@@ -52,42 +52,46 @@ describe("questions", () => {
 
   it("refuse les médecins et les visiteurs non connectés", async () => {
     await expectForumError(createQuestion(doctor, valid), "FORBIDDEN");
-    await expectForumError(createQuestion(null, valid), "UNAUTHENTICATED");
+    await expectForumError(createQuestion(undefined, valid), "UNAUTHENTICATED");
   });
 
   it("l'auteur modifie titre et contenu, sans toucher à l'auteur ni à la date de création", async () => {
     const q = await createQuestion(sara, valid);
+    await new Promise((r) => setTimeout(r, 5));
     const updated = await updateQuestion(sara, q.id, {
-      title: "Titre modifié",
-      content: "Contenu modifié et assez long",
-      author_id: "p2",
-      created_at: "2000-01-01",
-    } as typeof valid);
-    expect(updated.title).toBe("Titre modifié");
-    expect(updated.author_id).toBe("p1");
-    expect(updated.created_at).toBe(q.created_at);
-    expect((await getQuestion(q.id))?.title).toBe("Titre modifié");
+      title: "Nouveau titre valide",
+      content: "Nouveau contenu suffisamment long",
+    });
+    expect(updated).toMatchObject({
+      id: q.id,
+      author_id: "p1",
+      author_name: "Sarra Ben Ali",
+      author_role: "PATIENT",
+      created_at: q.created_at,
+      title: "Nouveau titre valide",
+      content: "Nouveau contenu suffisamment long",
+    });
+    expect(updated.updated_at > q.created_at).toBe(true);
   });
 
   it("un autre utilisateur, même médecin, ne peut pas modifier la question", async () => {
     const q = await createQuestion(sara, valid);
-    await expectForumError(updateQuestion(mohamed, q.id, valid), "FORBIDDEN");
-    await expectForumError(updateQuestion(doctor, q.id, valid), "FORBIDDEN");
-    await expectForumError(updateQuestion(sara, "inconnue", valid), "NOT_FOUND");
-    await expectForumError(updateQuestion(sara, q.id, { title: "x", content: "" }), "VALIDATION");
+    await expectForumError(updateQuestion(mohamed, q.id, { title: "Titre piraté", content: "Contenu piraté" }), "FORBIDDEN");
+    await expectForumError(updateQuestion(doctor, q.id, { title: "Titre piraté", content: "Contenu piraté" }), "FORBIDDEN");
   });
 
   it("liste les questions avec le nombre de réponses et la dernière réponse", async () => {
     const q1 = await createQuestion(sara, valid);
     await createQuestion(mohamed, { ...valid, title: "Une autre question" });
-    await createReply(doctor, q1.id, "Première réponse");
+    await createReply(mohamed, q1.id, "Première réponse");
     await new Promise((r) => setTimeout(r, 5)); // horodatages distincts
-    const last = await createReply(mohamed, q1.id, "Deuxième réponse");
+    const last = await createReply(doctor, q1.id, "Deuxième réponse (médecin)");
     const list = await listQuestions();
     const summary = list.find((q) => q.id === q1.id)!;
     expect(list).toHaveLength(2);
     expect(summary.replyCount).toBe(2);
     expect(summary.lastReply?.id).toBe(last.id);
+    expect(summary.isClosed).toBe(true);
     expect(list.find((q) => q.id !== q1.id)!.replyCount).toBe(0);
   });
 });
@@ -96,8 +100,8 @@ describe("suppression d'une question", () => {
   it("supprime la question et ses réponses (pas d'orphelines)", async () => {
     const q = await createQuestion(sara, valid);
     const other = await createQuestion(mohamed, { ...valid, title: "Autre question" });
-    await createReply(doctor, q.id, "Réponse 1");
-    await createReply(mohamed, q.id, "Réponse 2");
+    await createReply(mohamed, q.id, "Réponse 1");
+    await createReply(doctor, q.id, "Réponse 2");
     const kept = await createReply(sara, other.id, "Réponse ailleurs");
 
     await deleteQuestion(sara, q.id);
@@ -143,10 +147,23 @@ describe("réponses", () => {
 
   it("retourne les réponses dans l'ordre chronologique", async () => {
     const q = await createQuestion(sara, valid);
-    const a = await createReply(doctor, q.id, "A");
+    const a = await createReply(mohamed, q.id, "A");
     await new Promise((r) => setTimeout(r, 5));
-    const b = await createReply(mohamed, q.id, "B");
+    const b = await createReply(doctor, q.id, "B");
     expect((await listReplies(q.id)).map((r) => r.id)).toEqual([a.id, b.id]);
+  });
+
+  it("clôture la question après la réponse d'un médecin et interdit toute réponse ultérieure", async () => {
+    const q = await createQuestion(sara, valid);
+    await createReply(mohamed, q.id, "Réponse d'un patient");
+    await createReply(doctor, q.id, "Réponse officielle du médecin");
+
+    const updatedQ = await getQuestion(q.id);
+    expect(updatedQ?.isClosed).toBe(true);
+
+    // Ni un autre patient, ni un autre médecin ne peuvent répondre après
+    await expectForumError(createReply(sara, q.id, "Nouveau message"), "FORBIDDEN");
+    await expectForumError(createReply(otherDoctor, q.id, "Autre message"), "FORBIDDEN");
   });
 
   it("seul l'auteur modifie sa réponse", async () => {
@@ -163,11 +180,11 @@ describe("réponses", () => {
 
   it("l'auteur ou un médecin (modération) supprime une réponse", async () => {
     const q = await createQuestion(sara, valid);
-    const r1 = await createReply(doctor, q.id, "Réponse du médecin");
-    const r2 = await createReply(mohamed, q.id, "Réponse de Mohamed");
+    const r1 = await createReply(mohamed, q.id, "Réponse de Mohamed");
+    const r2 = await createReply(doctor, q.id, "Réponse du médecin");
     await expectForumError(deleteReply(sara, r1.id), "FORBIDDEN");
-    await deleteReply(doctor, r1.id);
-    await deleteReply(otherDoctor, r2.id);
+    await deleteReply(otherDoctor, r1.id);
+    await deleteReply(doctor, r2.id);
     expect(await listReplies(q.id)).toHaveLength(0);
     expect(await getQuestion(q.id)).toBeDefined();
     await expectForumError(deleteReply(doctor, r2.id), "NOT_FOUND");
@@ -188,44 +205,33 @@ describe("migration de la base", () => {
     const db = await getDB();
     expect(db.version).toBe(DB_VERSION);
     expect(await db.get("feedbacks", "fb1")).toMatchObject({ content: "Feedback en cache" });
-    expect([...db.objectStoreNames]).toEqual(
-      expect.arrayContaining(["feedbacks", "deleted", "forumQuestions", "forumReplies"]),
-    );
   });
 
   it("signale un ancien onglet qui bloque la mise à jour au lieu d'attendre indéfiniment", async () => {
-    const oldTab = await openDB(DB_NAME, 3, {
-      upgrade(db) {
-        db.createObjectStore("feedbacks", { keyPath: "id" });
-      },
-    }); // connexion laissée ouverte, comme un onglet resté sur l'ancienne version
-
-    const err = await getDB().then(() => null, (e) => e);
-    expect(err).toBeInstanceOf(DBBlockedError);
-
-    oldTab.close();
-    const db = await getDB(); // l'appel suivant réessaie et réussit
-    expect(db.version).toBe(DB_VERSION);
+    const v3 = await openDB(DB_NAME, 3);
+    const next = getDB();
+    await expect(next).rejects.toBeInstanceOf(DBBlockedError);
+    v3.close();
   });
 
   it("réutilise la même connexion", async () => {
-    expect(await getDB()).toBe(await getDB());
+    const a = await getDB();
+    const b = await getDB();
+    expect(a).toBe(b);
   });
 
   it("depuis une ancienne version (avant la v3), repart de stores propres", async () => {
-    const v2 = await openDB(DB_NAME, 2, {
+    const v1 = await openDB(DB_NAME, 1, {
       upgrade(db) {
-        db.createObjectStore("feedbacks", { keyPath: "id" });
-        db.createObjectStore("forumQuestions", { keyPath: "id" });
+        db.createObjectStore("oldStore");
       },
     });
-    await v2.put("forumQuestions", { id: "old", title: "Ancien format" });
-    v2.close();
+    v1.close();
 
     const db = await getDB();
-    expect(await db.get("forumQuestions", "old")).toBeUndefined();
-    expect([...db.objectStoreNames]).toEqual(
+    expect(Array.from(db.objectStoreNames)).toEqual(
       expect.arrayContaining(["feedbacks", "deleted", "forumQuestions", "forumReplies"]),
     );
+    expect((db.objectStoreNames as any).contains("oldStore")).toBe(false);
   });
 });

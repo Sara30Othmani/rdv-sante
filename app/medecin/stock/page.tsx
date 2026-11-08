@@ -11,6 +11,7 @@ import AddStockItemModal from "@/components/stock/AddStockItemModal";
 import AdjustStockModal from "@/components/stock/AdjustStockModal";
 import EditThresholdModal from "@/components/stock/EditThresholdModal";
 import MovementsHistoryModal from "@/components/stock/MovementsHistoryModal";
+import StockChatbotModal from "@/components/stock/StockChatbotModal";
 
 export default function StockPage() {
   const {
@@ -34,6 +35,7 @@ export default function StockPage() {
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [adjustItem, setAdjustItem] = useState<{
     item: StockItem;
     defaultAction?: "IN" | "OUT";
@@ -138,13 +140,21 @@ export default function StockPage() {
             Suivi des médicaments, seringues, coton, consommables, alertes de rupture et dates de péremption.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/medecin"
             className="px-4 py-2 border border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
           >
             ← Tableau de bord
           </Link>
+          <button
+            type="button"
+            onClick={() => setIsChatbotOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 via-teal-700 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all"
+          >
+            <span className="text-base">🤖</span>
+            <span>Assistant IA Stock</span>
+          </button>
           <button
             type="button"
             onClick={() => setIsAddOpen(true)}
@@ -199,7 +209,24 @@ export default function StockPage() {
         />
       )}
 
+      {/* Floating Action Button pour ouvrir le Chatbot à tout moment */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <button
+          type="button"
+          onClick={() => setIsChatbotOpen(true)}
+          className="flex items-center gap-2.5 px-5 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold rounded-full shadow-2xl transition-transform hover:scale-105 active:scale-95 ring-4 ring-teal-500/20"
+        >
+          <span className="text-xl">🤖</span>
+          <span className="text-sm font-semibold tracking-wide">Assistant IA Stock</span>
+        </button>
+      </div>
+
       {/* Modals */}
+      <StockChatbotModal
+        isOpen={isChatbotOpen}
+        onClose={() => setIsChatbotOpen(false)}
+      />
+
       <AddStockItemModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}

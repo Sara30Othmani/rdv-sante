@@ -20,6 +20,7 @@ const MENUS: Record<RoleSegment, MenuItem[]> = {
   patient: [
     { label: "Médecins", href: "/patient", exact: true, icon: "▦" },
     { label: "Mes rendez-vous", href: "/patient/rendez-vous", icon: "▣" },
+    { label: "Mes ordonnances", href: "/patient/ordonnances", icon: "📄" },
     {
       label: "Mes réclamations & feedback",
       href: "/patient/feedbacks/dashboard",
@@ -32,6 +33,18 @@ const MENUS: Record<RoleSegment, MenuItem[]> = {
     { label: "Tableau de bord", href: "/medecin", exact: true, icon: "▦" },
     { label: "Profile", href: "/medecin/profil", icon: "▣" },
     { label: "Rendez-vous patients", href: "/medecin/rendez-vous", icon: "▣" },
+    {
+      label: "Gestion des ordonnances",
+      href: "/medecin/ordonnances",
+      match: "/medecin/ordonnances",
+      icon: "📄",
+    },
+    {
+      label: "Médicaments",
+      href: "/medecin/medicaments",
+      match: "/medecin/medicaments",
+      icon: "💊",
+    },
     {
       label: "Gestion du stock",
       href: "/medecin/stock",
@@ -98,32 +111,19 @@ export default function Sidebar() {
         {user && (
           <div className="sidebar-user">
             <span className="sidebar-user-name">{user.name}</span>
-            <span className="sidebar-user-role">
-              {user.role === "PATIENT" ? "Patient" : "Médecin"}
-            </span>
-          </div>
-        )}
-        {user ? (
-          <button
-            type="button"
-            className="sidebar-logout"
-            onClick={async () => {
-              try {
-                await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-              } finally {
+            <span className="sidebar-user-role">{SPACE_LABEL[segment]}</span>
+            <button
+              type="button"
+              onClick={async () => {
+                await fetch("/api/auth/logout", { method: "POST" });
                 clearSession();
-                router.push("/");
-              }
-            }}
-          >
-            <span className="sidebar-icon" aria-hidden="true">↪</span>
-            <span>Déconnexion</span>
-          </button>
-        ) : (
-          <Link href="/login" className="sidebar-link sidebar-login">
-            <span className="sidebar-icon" aria-hidden="true">↗</span>
-            <span>Se connecter</span>
-          </Link>
+                router.replace("/login");
+              }}
+              className="sidebar-logout"
+            >
+              Déconnexion
+            </button>
+          </div>
         )}
       </div>
     </aside>

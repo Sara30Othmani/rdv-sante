@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   APPOINTMENT_STATUSES,
   CLOSED_STATUSES,
@@ -9,6 +9,9 @@ import {
 } from "@/lib/appointments";
 import { patchAppointment, useAppointments } from "@/lib/useAppointments";
 import { useUser } from "@/lib/session";
+import { apiJson } from "@/lib/api";
+import CreatePrescriptionModal from "@/components/prescriptions/CreatePrescriptionModal";
+import PrescriptionPrintModal, { type PrescriptionData } from "@/components/prescriptions/PrescriptionPrintModal";
 import "../../style.css";
 import "./rdv.css";
 
@@ -32,6 +35,24 @@ export default function MedecinRendezVousPage() {
     useState<Appointment | null>(null);
 
   const [saving, setSaving] = useState(false);
+
+  // Ordonnances
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [createAppt, setCreateAppt] = useState<any | null>(null);
+  const [printData, setPrintData] = useState<PrescriptionData | null>(null);
+
+  const loadPrescriptions = async () => {
+    try {
+      const data = await apiJson<any[]>("/api/prescriptions");
+      setPrescriptions(data);
+    } catch {
+      // Ignorer si pas connecté ou pas de prescription
+    }
+  };
+
+  useEffect(() => {
+    loadPrescriptions();
+  }, []);
 
   const visible = useMemo(
     () =>
@@ -98,84 +119,75 @@ export default function MedecinRendezVousPage() {
     await update(appointment.id, { status }, messages[status]);
   }
 
-  if (!loaded) {
-    return (
-      <main className="doctor-dashboard">
-        <p className="doctor-loading">Chargement des rendez-vous...</p>
-      </main>
-    );
-  }
+  const handleOpenPrint = (p: any) => {
+    setPrintData({
+      id: p.id,
+      patientName: p.patient?.name || "Patient",
+      patientEmail: p.patient?.email,
+      patientPhone: p.patient?.phone,
+      doctorName: p.doctor?.name || user.name,
+      specialty: p.appointment?.specialty || "Cabinet Médical",
+      consultationDate: p.appointment?.date,
+      issuedAt: p.issuedAt,
+      validUntil: p.validUntil,
+      status: p.status,
+      items: p.items,
+    });
+  };
 
   return (
-    <main className="doctor-dashboard">
-      <header className="doctor-dashboard-header">
+    <main className="appointments-page">
+      <header className="appointments-header">
         <div>
-          <span className="doctor-dashboard-eyebrow">ESPACE PROFESSIONNEL</span>
-          <h1>Gestion des rendez-vous</h1>
+          <span className="appointments-eyebrow">ESPACE PROFESSIONNEL MÉDECIN</span>
+          <h1>Rendez-vous &amp; Consultations</h1>
           <p>
-            Bonjour {user.name}, consultez et gérez votre activité médicale.
+            Gérez vos demandes de consultations, vos notes cliniques et rédigez les ordonnances pour vos patients.
           </p>
         </div>
       </header>
 
-      {/* Indicateurs */}
-      <section className="doctor-dashboard-stats">
-        <div className="doctor-stat">
-          <div className="doctor-stat-icon pending-icon">◷</div>
-          <div>
-            <span>En attente</span>
-            <strong>{countOf("En attente")}</strong>
-          </div>
-        </div>
-
-        <div className="doctor-stat">
-          <div className="doctor-stat-icon accepted-icon">✓</div>
-          <div>
-            <span>Acceptés</span>
-            <strong>{countOf("Accepté")}</strong>
-          </div>
-        </div>
-
-        <div className="doctor-stat">
-          <div className="doctor-stat-icon completed-icon">▣</div>
-          <div>
-            <span>Terminés</span>
-            <strong>{countOf("Terminé")}</strong>
-          </div>
-        </div>
-      </section>
-
-      {/* Message de retour */}
-      {error && <p className="doctor-error">{error}</p>}
-
       {message && (
-        <div className="doctor-dashboard-message" role="status">
+        <div
+          className="doctor-feedback-banner"
+          role="status"
+          aria-live="polite"
+        >
+          <span>ℹ</span>
           <span>{message}</span>
-          <button type="button" onClick={() => setMessage("")}>
+          <button
+            type="button"
+            className="doctor-feedback-close"
+            onClick={() => setMessage("")}
+            aria-label="Fermer"
+          >
             ×
           </button>
         </div>
       )}
 
-      {/* Tableau */}
-      <section className="doctor-table-section">
-        <div className="doctor-table-header">
+      {error && <p className="appointments-error">{error}</p>}
+
+      <section className="doctor-appointments-card">
+        <div className="doctor-toolbar">
           <div>
-            <h2>Liste des rendez-vous</h2>
-            <p>Suivez les demandes et les consultations de vos patients.</p>
+            <h2>Planning des consultations</h2>
+            <p>
+              {loaded ? `${mine.length} rendez-vous au total` : "Chargement…"}
+            </p>
           </div>
 
-          <div className="doctor-table-filter">
-            <label htmlFor="doctor-status-filter">Statut :</label>
+          <div className="doctor-filter-group">
+            <label htmlFor="doctor-status-filter">Filtrer par statut :</label>
             <select
               id="doctor-status-filter"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             >
-              <option value="Tous">Tous les rendez-vous</option>
+              <option value="Tous">Tous ({mine.length})</option>
               {APPOINTMENT_STATUSES.map((status) => (
                 <option key={status} value={status}>
-                  {status}
+                  {status} ({countOf(status)})
                 </option>
               ))}
             </select>
@@ -203,6 +215,11 @@ export default function MedecinRendezVousPage() {
                 const isAccepted = appointment.status === "Accepté";
                 const isDone = appointment.status === "Terminé";
                 const isClosed = CLOSED_STATUSES.includes(appointment.status);
+
+                // Ordonnance existante pour ce rdv
+                const apptPresc = prescriptions.find(
+                  (p) => String(p.appointmentId) === String(appointment.id)
+                );
 
                 return (
                   <tr key={appointment.id}>
@@ -307,11 +324,30 @@ export default function MedecinRendezVousPage() {
                         )}
                       </div>
                     </td>
+
                     <td>
                       <div className="doctor-prescription-cell">
-                        <span className="doctor-prescription-status">
-                          Aucune ordonnance
-                        </span>
+                        {apptPresc ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPrint(apptPresc)}
+                            className="px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-semibold flex items-center gap-1 border border-teal-200 shadow-2xs transition-colors"
+                          >
+                            <span>📄</span>
+                            <span>Voir ordonnance</span>
+                          </button>
+                        ) : isDone || isAccepted ? (
+                          <button
+                            type="button"
+                            onClick={() => setCreateAppt(appointment)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold flex items-center gap-1 border border-emerald-200 shadow-2xs transition-colors"
+                          >
+                            <span>✏️</span>
+                            <span>Rédiger ordonnance</span>
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -320,7 +356,7 @@ export default function MedecinRendezVousPage() {
 
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <div className="doctor-table-empty">
                       <span>▦</span>
                       <strong>Aucun rendez-vous trouvé</strong>
@@ -339,6 +375,25 @@ export default function MedecinRendezVousPage() {
           </span>
         </div>
       </section>
+
+      {/* Modal Création Ordonnance */}
+      <CreatePrescriptionModal
+        isOpen={Boolean(createAppt)}
+        onClose={() => setCreateAppt(null)}
+        appointment={createAppt}
+        onCreated={() => {
+          setCreateAppt(null);
+          loadPrescriptions();
+          setMessage("Ordonnance délivrée avec succès.");
+        }}
+      />
+
+      {/* Modal Impression Ordonnance */}
+      <PrescriptionPrintModal
+        isOpen={Boolean(printData)}
+        onClose={() => setPrintData(null)}
+        data={printData}
+      />
 
       {/* Popup des notes */}
       {selectedAppointment && (

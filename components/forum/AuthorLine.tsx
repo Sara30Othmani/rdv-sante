@@ -1,5 +1,5 @@
 "use client";
-import type { Role } from "@/lib/feedbacks/types";
+import type { ReplyAuthorRole } from "@/lib/forum/types";
 import { ClockIcon } from "./icons";
 import { Avatar, RoleBadge, TimeAgo } from "./ui";
 
@@ -14,7 +14,7 @@ export default function AuthorLine({
   showAvatar = true,
 }: {
   name: string;
-  role: Role;
+  role: ReplyAuthorRole;
   createdAt: string;
   updatedAt?: string;
   pending?: boolean;

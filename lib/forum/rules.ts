@@ -7,7 +7,19 @@ export const LIMITS = {
   contentMax: 5000,
   replyMin: 1,
   replyMax: 2000,
+  /** Réponse de l'IA : un peu plus longue qu'une réponse d'utilisateur. */
+  aiReplyMax: 4000,
+  /** Photo déjà réduite (data URL) : environ 1,5 Mo d'image au maximum. */
+  photoMaxChars: 2_000_000,
+  /** Fichier choisi par l'utilisateur, avant réduction. */
+  photoFileMaxBytes: 10 * 1024 * 1024,
 } as const;
+
+/** Formats d'image acceptés à l'import. */
+export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+
+/** Auteur affiché pour la réponse de l'IA (toujours la première réponse). */
+export const AI_AUTHOR = { id: "assistant-ia", name: "Assistant IA" } as const;
 
 /**
  * Nettoie un texte saisi : retire les caractères de contrôle invisibles
@@ -41,9 +53,18 @@ export function validateContent(value: unknown): string | null {
 }
 
 export function validateQuestion(input: Partial<QuestionInput>): string[] {
-  return [validateTitle(input.title), validateContent(input.content)].filter(
+  return [validateTitle(input.title), validateContent(input.content), validatePhoto(input.photo)].filter(
     (e): e is string => e !== null,
   );
+}
+
+/** La photo est facultative ; si elle est fournie, ce doit être une image encodée. */
+export function validatePhoto(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(value))
+    return "La photo doit être une image JPEG, PNG ou WebP.";
+  if (value.length > LIMITS.photoMaxChars) return "La photo est trop volumineuse.";
+  return null;
 }
 
 export function validateReply(content: unknown): string[] {
@@ -73,7 +94,15 @@ export const canEditQuestion = (q: ForumQuestion, actor: Actor) =>
 export const canDeleteQuestion = (q: ForumQuestion, actor: Actor) =>
   q.author_id === actor.id || isModerator(actor);
 
-export const canEditReply = (r: ForumReply, actor: Actor) => r.author_id === actor.id;
+export const isAiReply = (r: ForumReply) => r.author_role === "AI";
+
+// La réponse de l'IA n'est modifiable par personne (son auteur n'est pas un utilisateur).
+export const canEditReply = (r: ForumReply, actor: Actor) =>
+  !isAiReply(r) && r.author_id === actor.id;
+
+/** Seul l'auteur de la question lance (ou relance) l'analyse de sa photo. */
+export const canRequestAiAnalysis = (q: ForumQuestion, actor: Actor) =>
+  !!q.photo && q.author_id === actor.id;
 
 export const canDeleteReply = (r: ForumReply, actor: Actor) =>
   r.author_id === actor.id || isModerator(actor);

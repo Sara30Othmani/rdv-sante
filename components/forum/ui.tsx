@@ -1,8 +1,8 @@
 "use client";
 // Éléments d'interface partagés par les pages du forum.
 import { useEffect, useRef, type ReactNode } from "react";
-import type { Role } from "@/lib/feedbacks/types";
-import { AlertIcon, CheckCircleIcon, CloseIcon, ShieldCheckIcon, TrashIcon } from "./icons";
+import type { ReplyAuthorRole } from "@/lib/forum/types";
+import { AlertIcon, CheckCircleIcon, CloseIcon, ShieldCheckIcon, SparklesIcon, TrashIcon } from "./icons";
 
 // --- Boutons et champs -------------------------------------------------------
 
@@ -68,21 +68,32 @@ function initial(name: string) {
   return (clean[0] ?? "?").toUpperCase();
 }
 
-export function Avatar({ name, role, size = "md" }: { name: string; role: Role; size?: "sm" | "md" }) {
+export function Avatar({ name, role, size = "md" }: { name: string; role: ReplyAuthorRole; size?: "sm" | "md" }) {
   const dims = size === "sm" ? "size-6 text-[11px]" : "size-9 text-sm";
   return (
     <span
       aria-hidden="true"
       className={`inline-flex ${dims} shrink-0 items-center justify-center rounded-full font-semibold ${
-        role === "DOCTOR" ? "bg-teal-700 text-white" : "bg-slate-200 text-slate-700"
+        role === "DOCTOR"
+          ? "bg-teal-700 text-white"
+          : role === "AI"
+            ? "bg-violet-600 text-white"
+            : "bg-slate-200 text-slate-700"
       }`}
     >
-      {initial(name)}
+      {role === "AI" ? <SparklesIcon size={size === "sm" ? 13 : 18} /> : initial(name)}
     </span>
   );
 }
 
-export function RoleBadge({ role }: { role: Role }) {
+export function RoleBadge({ role }: { role: ReplyAuthorRole }) {
+  if (role === "AI")
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-800 ring-1 ring-violet-600/20 ring-inset">
+        <SparklesIcon size={13} />
+        Réponse IA
+      </span>
+    );
   if (role !== "DOCTOR") return null;
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-800 ring-1 ring-teal-600/20 ring-inset">

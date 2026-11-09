@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canAskQuestion, canDeleteQuestion, canDeleteReply, canEditQuestion, canEditReply, canReply,
-  cleanText, LIMITS, validateQuestion, validateReply,
+  cleanText, LIMITS, validatePhoto, validateQuestion, validateReply,
 } from "./rules";
 import type { Actor, ForumQuestion, ForumReply } from "./types";
 
@@ -82,5 +82,18 @@ describe("permissions", () => {
     expect(canDeleteReply(reply, doctor)).toBe(true);
     expect(canDeleteReply(reply, otherDoctor)).toBe(true);
     expect(canDeleteReply(reply, patient)).toBe(false);
+  });
+});
+
+describe("photo", () => {
+  it("accepte l'absence de photo et les images encodées", () => {
+    expect(validatePhoto(undefined)).toBeNull();
+    expect(validatePhoto(null)).toBeNull();
+    expect(validatePhoto("data:image/png;base64,iVBORw0KGgo=")).toBeNull();
+  });
+  it("refuse un autre format ou une photo trop lourde", () => {
+    expect(validatePhoto("data:image/svg+xml;base64,PHN2Zz4=")).not.toBeNull();
+    expect(validatePhoto("https://exemple.com/photo.jpg")).not.toBeNull();
+    expect(validatePhoto("data:image/jpeg;base64," + "A".repeat(LIMITS.photoMaxChars))).not.toBeNull();
   });
 });

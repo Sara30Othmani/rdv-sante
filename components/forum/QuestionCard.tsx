@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ForumQuestionSummary } from "@/lib/forum/types";
 import type { RoleSegment } from "@/lib/roles";
 import { forumRoutes } from "@/lib/forum/routes";
-import { ChatIcon, ClockIcon } from "./icons";
+import { ChatIcon, ClockIcon, ImageIcon } from "./icons";
 import { Avatar, RoleBadge, TimeAgo } from "./ui";
 
 const plural = (n: number) => `${n} réponse${n > 1 ? "s" : ""}`;
@@ -43,6 +43,13 @@ export default function QuestionCard({ q, segment }: { q: ForumQuestionSummary; 
               <span className="font-medium text-slate-700">{q.author_name}</span>
               <TimeAgo iso={q.created_at} />
             </span>
+
+            {q.photo && (
+              <span className="inline-flex items-center gap-1 text-slate-600">
+                <ImageIcon size={14} />
+                Photo
+              </span>
+            )}
 
             <span className={`inline-flex items-center gap-1 sm:hidden ${answered ? "text-teal-800" : ""}`}>
               <ChatIcon size={14} />

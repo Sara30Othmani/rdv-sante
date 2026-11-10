@@ -8,7 +8,7 @@ import { forumRoutes } from "@/lib/forum/routes";
 import type { ForumQuestion, ForumReply } from "@/lib/forum/types";
 import {
   canDeleteQuestion, canDeleteReply, canEditQuestion, canEditReply, canReply, canRequestAiAnalysis, cleanText,
-  isAiReply, LIMITS, validateReply,
+  isAiReply, isQuestionClosed, LIMITS, validateReply,
 } from "@/lib/forum/rules";
 import {
   createReply, deleteQuestion, deleteReply, getQuestion, listReplies, sortReplies, updateReply,

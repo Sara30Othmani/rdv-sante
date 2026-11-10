@@ -35,6 +35,16 @@ export function getRefreshCookie(req: Request): string | null {
  */
 export async function getCurrentUser(req: Request): Promise<AuthUser | null> {
   const token = getAccessCookie(req);
+
+  
+  console.log("[AUTH] Cookie access_token présent :", !!token);
+
+  if (!token) {
+    console.log("[AUTH] Aucun access token");
+    return null;
+  }
+
+  
   if (!token) return null;
 
   const payload = verifyAccessToken(token);

@@ -12,6 +12,7 @@ import {
   type AppointmentStatus,
   type AppointmentStatusCode,
 } from "@/lib/appointments";
+import { getScheduleOf, slotsForDate } from "@/lib/schedule";
 
 type Body = {
   date?: string;
@@ -19,6 +20,7 @@ type Body = {
   reason?: string;
   status?: AppointmentStatus;
   notes?: string;
+  cancelReason?: string;
 };
 
 // Transitions autorisées pour le médecin
@@ -62,8 +64,19 @@ export async function PATCH(
       if (requested) {
         if (requested !== "CANCELLED")
           return fail(403, "Un patient peut seulement annuler son rendez-vous.");
+        const why = body.cancelReason?.trim() ?? "";
+        if (why.length > 500) return fail(400, "Motif trop long (500 caractères).");
         appt.status = "CANCELLED";
+        if (why) appt.cancelReason = why;
       } else {
+        // Une fois accepté par le médecin, l'horaire est figé : le patient peut
+        // seulement annuler (puis reprendre un nouveau rendez-vous).
+        if (appt.status !== "PENDING")
+          return fail(
+            409,
+            "Ce rendez-vous a été accepté par le médecin : il ne peut plus être modifié. Vous pouvez l'annuler."
+          );
+
         const date = body.date ?? appt.date;
         const time = body.time ?? appt.time;
         const reason = (body.reason ?? appt.reason).trim();
@@ -76,10 +89,8 @@ export async function PATCH(
         const moved = date !== appt.date || time !== appt.time;
         if (moved) {
           const profile = await DoctorProfile.findOne({ userId: appt.doctorId }).lean();
-          if (!profile?.availableSlots.includes(time))
-            return fail(400, "Ce créneau n'est pas proposé par ce médecin.");
-          // Le médecin doit confirmer de nouveau le nouvel horaire
-          if (appt.status === "ACCEPTED") appt.status = "PENDING";
+          if (!profile || !slotsForDate(getScheduleOf(profile), date).includes(time))
+            return fail(400, "Ce créneau n'est pas proposé par ce médecin ce jour-là.");
         }
         appt.date = date;
         appt.time = time;

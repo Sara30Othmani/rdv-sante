@@ -1,0 +1,804 @@
+
+/* ==========================================
+   MES RENDEZ-VOUS — DESIGN HARMONISÉ
+   Thème : Turquoise / Blanc / Gris clair
+   Classes JSX conservées
+   ========================================== */
+
+/* PAGE PRINCIPALE */
+.appointments-page {
+  width: 100%;
+  min-height: 100vh;
+  padding: 30px;
+  color: #172b4d;
+  background: #f7f9fc;
+  font-family: inherit;
+}
+
+/* HEADER */
+.appointments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 26px;
+}
+
+.appointments-header h1 {
+  margin: 0 0 7px;
+  color: #172b4d;
+  font-size: 1.8rem;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+}
+
+.appointments-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.btn-prendre-rdv {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 43px;
+  padding: 11px 19px;
+  color: #fff;
+  background: #087f8c;
+  border: 1px solid #087f8c;
+  border-radius: 9px;
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-prendre-rdv:hover {
+  background: #066873;
+  border-color: #066873;
+  box-shadow: 0 4px 12px rgba(8, 127, 140, 0.15);
+}
+
+/* KPI GRID */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 26px;
+}
+
+/* FILTRES */
+.myrdv-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-bottom: 20px;
+  padding: 5px 0;
+}
+
+.myrdv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 39px;
+  padding: 8px 14px;
+  color: #64748b;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.myrdv-chip:hover {
+  color: #087f8c;
+  border-color: #9bd5d5;
+  background: #f5fbfb;
+}
+
+.myrdv-chip.is-active {
+  color: #087f8c;
+  background: #e8f6f4;
+  border-color: #a9dcda;
+}
+
+.myrdv-chip-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  color: #64748b;
+  background: #f1f5f9;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.myrdv-chip.is-active .myrdv-chip-count {
+  color: #087f8c;
+  background: #fff;
+}
+
+/* NOTIFICATIONS */
+.myrdv-notice {
+  margin: 0 0 18px;
+  padding: 12px 16px;
+  color: #087f8c;
+  background: #e8f6f4;
+  border: 1px solid #c8e9e5;
+  border-radius: 9px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.appointments-page > .text-sm {
+  margin-bottom: 16px;
+}
+
+/* Popup d'annulation centré */
+.myrdv-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(520px, calc(100vw - 32px));
+  max-height: 90vh;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 15px;
+  background: #ffffff;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+}
+
+.myrdv-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+/* TABLEAU */
+.myrdv-table-wrap {
+  margin: 0 0 20px;
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 13px;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.035);
+}
+
+.myrdv-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.9rem;
+}
+
+.myrdv-table thead th {
+  padding: 15px 18px;
+  color: #64748b;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.myrdv-table thead th.is-actions {
+  text-align: right;
+}
+
+.myrdv-table tbody td {
+  padding: 17px 18px;
+  vertical-align: middle;
+  border-bottom: 1px solid #edf1f5;
+  color: #334155;
+}
+
+.myrdv-table tbody tr:not(.myrdv-group-row) {
+  transition: background 0.2s ease;
+}
+
+.myrdv-table tbody tr:not(.myrdv-group-row):hover {
+  background: #f8fbfc;
+}
+
+.myrdv-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* GROUPES : EN COURS / HISTORIQUE */
+.myrdv-group-row th {
+  padding: 12px 18px;
+  color: #087f8c;
+  background: #f0f9f8;
+  border-bottom: 1px solid #dcefeb;
+  font-size: 0.77rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.myrdv-group-row th span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 23px;
+  min-height: 23px;
+  margin-left: 8px;
+  padding: 2px 7px;
+  color: #087f8c;
+  background: #fff;
+  border: 1px solid #d5eeea;
+  border-radius: 6px;
+}
+
+/* DATE ET MÉDECIN */
+.myrdv-when,
+.myrdv-who {
+  display: grid;
+  gap: 5px;
+}
+
+.myrdv-when strong,
+.myrdv-who strong {
+  color: #172b4d;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.myrdv-when span,
+.myrdv-who span {
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+.myrdv-when strong::first-letter {
+  text-transform: uppercase;
+}
+
+/* MOTIF */
+.myrdv-reason {
+  display: -webkit-box;
+  max-width: 260px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+  color: #475569;
+  line-height: 1.5;
+}
+
+/* INFORMATIONS SECONDAIRES */
+.myrdv-sub {
+  display: block;
+  max-width: 220px;
+  margin-top: 5px;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 0.77rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* BADGES DE STATUT */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 0.77rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+/* Les noms de classes de statut doivent correspondre
+   aux valeurs de STATUS_CLASSES dans appointments.ts */
+
+.status-badge.pending,
+.status-badge.status-pending,
+.status-badge.en-attente {
+  color: #946200;
+  background: #fff8e6;
+  border-color: #f5e5b5;
+}
+
+.status-badge.accepted,
+.status-badge.status-accepted,
+.status-badge.accepte {
+  color: #087f8c;
+  background: #e8f6f4;
+  border-color: #c6e8e3;
+}
+
+.status-badge.done,
+.status-badge.status-done,
+.status-badge.termine {
+  color: #166534;
+  background: #ecfdf3;
+  border-color: #c8ebd5;
+}
+
+.status-badge.refused,
+.status-badge.status-refused,
+.status-badge.refuse {
+  color: #b42318;
+  background: #fff1f0;
+  border-color: #f8d0cc;
+}
+
+.status-badge.cancelled,
+.status-badge.status-cancelled,
+.status-badge.annule {
+  color: #64748b;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+/* ACTIONS */
+.myrdv-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.myrdv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 35px;
+  padding: 7px 11px;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #dce3eb;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.myrdv-btn:hover {
+  color: #087f8c;
+  background: #f0fafa;
+  border-color: #087f8c;
+}
+
+.myrdv-btn--primary {
+  color: #fff;
+  background: #087f8c;
+  border-color: #087f8c;
+}
+
+.myrdv-btn--primary:hover {
+  color: #fff;
+  background: #066873;
+  border-color: #066873;
+}
+
+.myrdv-btn--danger {
+  color: #b42318;
+  background: #fff;
+  border-color: #fecaca;
+}
+
+.myrdv-btn--danger:hover {
+  color: #b42318;
+  background: #fff1f0;
+  border-color: #fca5a5;
+}
+
+/* PAGINATION */
+.myrdv-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 28px;
+}
+
+.myrdv-pagination p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.myrdv-pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.myrdv-page-btn {
+  min-width: 37px;
+  min-height: 37px;
+  padding: 8px 11px;
+  color: #475569;
+  background: #fff;
+  border: 1px solid #dce3eb;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.myrdv-page-btn:hover:not(:disabled) {
+  color: #087f8c;
+  border-color: #087f8c;
+  background: #f0fafa;
+}
+
+.myrdv-page-btn.is-active {
+  color: #fff;
+  background: #087f8c;
+  border-color: #087f8c;
+}
+
+.myrdv-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.myrdv-page-gap {
+  padding: 0 4px;
+  color: #94a3b8;
+}
+
+/* ÉTAT VIDE */
+.appointments-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  padding: 40px 24px;
+  text-align: center;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 13px;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.035);
+}
+
+.empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 16px;
+  color: #087f8c;
+  background: #e8f6f4;
+  border-radius: 15px;
+  font-size: 1.7rem;
+}
+
+.appointments-empty h2 {
+  margin: 0 0 9px;
+  color: #172b4d;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.appointments-empty p {
+  margin: 0 0 20px;
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* DIALOGUE D'ANNULATION */
+.myrdv-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: 90vh;
+  padding: 0;
+  overflow: auto;
+  color: #172b4d;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 15px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+}
+
+.myrdv-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.myrdv-dialog-body {
+  display: grid;
+  gap: 12px;
+  padding: 26px;
+}
+
+.myrdv-dialog-body h2 {
+  margin: 0;
+  color: #172b4d;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.myrdv-dialog-body label {
+  margin-top: 6px;
+  color: #334155;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.myrdv-dialog-body textarea {
+  width: 100%;
+  padding: 12px;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.myrdv-dialog-body textarea:focus {
+  outline: 2px solid rgba(8, 127, 140, 0.2);
+  border-color: #087f8c;
+}
+
+.myrdv-dialog-body small {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.myrdv-dialog-summary {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.myrdv-dialog-error {
+  margin: 0;
+  padding: 10px 12px;
+  color: #b42318;
+  background: #fff1f0;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  font-size: 0.85rem;
+}
+
+.myrdv-dialog-placeholder {
+  margin: 8px 0;
+  padding: 28px 16px;
+  color: #64748b;
+  text-align: center;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+}
+
+/* BOUTONS DU DIALOGUE */
+.myrdv-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 10px 17px;
+  color: #475569;
+  background: #fff;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  color: #087f8c;
+  background: #f8fbfc;
+  border-color: #087f8c;
+}
+
+.myrdv-danger {
+  min-height: 40px;
+  padding: 10px 17px;
+  color: #fff;
+  background: #c8372d;
+  border: 1px solid #c8372d;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.myrdv-danger:hover:not(:disabled) {
+  background: #a82b22;
+}
+
+.myrdv-danger:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* ACCESSIBILITÉ */
+.myrdv-btn:focus-visible,
+.myrdv-page-btn:focus-visible,
+.myrdv-danger:focus-visible,
+.myrdv-chip:focus-visible,
+.btn-prendre-rdv:focus-visible,
+.btn-secondary:focus-visible {
+  outline: 3px solid rgba(8, 127, 140, 0.22);
+  outline-offset: 2px;
+}
+
+/* CHARGEMENT */
+.appointments-page > p:first-child {
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+/* RESPONSIVE TABLETTE */
+@media (max-width: 1100px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .myrdv-table thead th,
+  .myrdv-table tbody td {
+    padding-left: 13px;
+    padding-right: 13px;
+  }
+}
+
+/* RESPONSIVE MOBILE */
+@media (max-width: 820px) {
+  .appointments-page {
+    padding: 22px 16px;
+  }
+
+  .appointments-header h1 {
+    font-size: 1.55rem;
+  }
+
+  .myrdv-table-wrap {
+    overflow: visible;
+    border-radius: 11px;
+  }
+
+  .myrdv-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .myrdv-table,
+  .myrdv-table tbody,
+  .myrdv-table tr,
+  .myrdv-table td,
+  .myrdv-table th {
+    display: block;
+  }
+
+  .myrdv-table tbody tr:not(.myrdv-group-row) {
+    padding: 10px 0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .myrdv-table tbody td {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 10px 16px;
+    border: 0;
+  }
+
+  .myrdv-table tbody td::before {
+    content: attr(data-label);
+    color: #64748b;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .myrdv-group-row th {
+    padding: 12px 16px;
+  }
+
+  .myrdv-row-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .myrdv-dialog-body {
+    padding: 20px;
+  }
+}
+
+/* PETITS ÉCRANS */
+@media (max-width: 480px) {
+  .appointments-page {
+    padding: 18px 12px;
+  }
+
+  .appointments-header {
+    align-items: flex-start;
+  }
+
+  .appointments-header h1 {
+    font-size: 1.4rem;
+  }
+
+  .btn-prendre-rdv {
+    width: 100%;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .myrdv-chips {
+    gap: 7px;
+  }
+
+  .myrdv-chip {
+    padding: 7px 10px;
+    font-size: 0.78rem;
+  }
+
+  .myrdv-table tbody td {
+    grid-template-columns: 1fr;
+    gap: 5px;
+    padding: 10px 14px;
+  }
+
+  .myrdv-row-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .myrdv-row-actions .myrdv-btn:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .myrdv-dialog-actions {
+    justify-content: stretch;
+  }
+
+  .myrdv-dialog-actions button {
+    flex: 1;
+  }
+
+  .myrdv-pagination {
+    align-items: flex-start;
+  }
+}

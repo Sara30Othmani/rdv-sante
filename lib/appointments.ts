@@ -47,6 +47,8 @@ export const STATUS_CLASSES: Record<AppointmentStatus, string> = {
   Terminé: "status-completed",
 };
 
+import type { WeeklySchedule } from "./schedule";
+
 /** Rendez-vous tel que l'API le renvoie (ids = texte). */
 export type Appointment = {
   id: string;
@@ -60,6 +62,7 @@ export type Appointment = {
   reason: string;
   status: AppointmentStatus;
   notes: string;
+  cancelReason?: string; // motif d'annulation saisi par le patient
 };
 
 export type NewAppointment = {
@@ -77,7 +80,7 @@ export type Doctor = {
   address: string;
   city: string;
   price: number;
-  availableSlots: string[];
+  schedule: WeeklySchedule; // jours et heures de travail
   initials: string;
   reservations: number; // rendez-vous en cours
   ratingAvg: number | null; // null = aucun avis

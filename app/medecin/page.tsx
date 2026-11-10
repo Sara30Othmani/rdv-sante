@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import KpiCard from "@/components/KpiCard";
 import { CLOSED_STATUSES, STATUS_CLASSES } from "@/lib/appointments";
 import { useAppointments } from "@/lib/useAppointments";
 import { useFeedbacks } from "@/lib/feedbacks/useFeedbacks";
 import { useStock } from "@/lib/stock/useStock";
 import { feedbackRoutes } from "@/lib/roles";
+import { apiJson } from "@/lib/api";
 
 const routes = feedbackRoutes("medecin");
 
@@ -30,11 +31,22 @@ function formatDate(date: string) {
 export default function MedecinHomePage() {
   const [today] = useState(todayISO);
 
-  // Les hooks ne renvoient déjà que les données du médecin connecté :
-  // la page n'a besoin ni de l'utilisateur ni de filtrer.
   const { appointments, loaded: apptLoaded, error: apptError } = useAppointments();
   const { items: received, loading: fbLoading, error: fbError } = useFeedbacks();
   const { kpis: stockKpis, loading: stockLoading, error: stockError } = useStock();
+
+  const [prescriptionCount, setPrescriptionCount] = useState<number | null>(null);
+  const [medicationCount, setMedicationCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    apiJson<any[]>("/api/prescriptions")
+      .then((data) => setPrescriptionCount(data.length))
+      .catch(() => setPrescriptionCount(0));
+
+    apiJson<any[]>("/api/medications")
+      .then((data) => setMedicationCount(data.length))
+      .catch(() => setMedicationCount(0));
+  }, []);
 
   // ---- Rendez-vous
   const upcoming = appointments
@@ -63,13 +75,22 @@ export default function MedecinHomePage() {
     <main className="appointments-page">
       <header className="appointments-header">
         <div>
-          <span className="appointments-eyebrow">ESPACE PROFESSIONNEL</span>
+          <span className="appointments-eyebrow">ESPACE PROFESSIONNEL MÉDECIN</span>
           <h1>Tableau de bord</h1>
-          <p>Voici l&apos;état de votre activité.</p>
+          <p>Supervision globale de votre cabinet, consultations, ordonnances et stocks.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href="/medecin/stock" className="btn-secondary text-sm font-semibold px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-100 transition-colors">
-            Gérer le stock
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/medecin/ordonnances"
+            className="px-4 py-2 border border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+          >
+            📄 Ordonnances
+          </Link>
+          <Link
+            href="/medecin/stock"
+            className="btn-secondary text-sm font-semibold px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-100 transition-colors"
+          >
+            📦 Gérer le stock
           </Link>
           <Link href="/medecin/rendez-vous" className="btn-prendre-rdv">
             Gérer les rendez-vous
@@ -81,6 +102,7 @@ export default function MedecinHomePage() {
         <p className="text-sm text-red-600">{apptError || fbError || stockError}</p>
       )}
 
+      {/* Rendez-vous */}
       <section aria-labelledby="kpi-rdv">
         <h2 id="kpi-rdv" className="dashboard-section-title">
           Rendez-vous
@@ -110,46 +132,63 @@ export default function MedecinHomePage() {
         </div>
       </section>
 
-      <section aria-labelledby="kpi-feedback">
-        <h2 id="kpi-feedback" className="dashboard-section-title">
-          Retours des patients
-        </h2>
+      {/* Module : Gestion des médicaments & Ordonnances */}
+      <section aria-labelledby="kpi-medicaments">
+        <div className="flex items-center justify-between mb-3">
+          <h2 id="kpi-medicaments" className="dashboard-section-title mb-0">
+            Médicaments &amp; Ordonnances
+          </h2>
+          <div className="flex items-center gap-3 text-xs font-semibold">
+            <Link
+              href="/medecin/medicaments"
+              className="text-teal-700 hover:text-teal-800 hover:underline"
+            >
+              Catalogue médicaments →
+            </Link>
+            <Link
+              href="/medecin/ordonnances"
+              className="text-teal-700 hover:text-teal-800 hover:underline"
+            >
+              Toutes les ordonnances →
+            </Link>
+          </div>
+        </div>
         <div className="kpi-grid">
           <KpiCard
-            label="Réclamations"
-            value={f ?? complaints.length}
-            hint={toHandle.length > 0 ? `${toHandle.length} à traiter` : "Aucune à traiter"}
-            tone={toHandle.length > 0 ? "red" : "teal"}
-            href={routes.list}
-          />
-          <KpiCard
-            label="Avis reçus"
-            value={f ?? reviews.length}
-            hint="Notes laissées après consultation"
+            label="Ordonnances délivrées"
+            value={prescriptionCount === null ? "–" : prescriptionCount}
+            hint="Prescriptions après consultation"
             tone="teal"
-            href={routes.list}
+            href="/medecin/ordonnances"
           />
           <KpiCard
-            label="Note moyenne"
-            value={f ?? (average === null ? "–" : `${average.toFixed(1)} ★`)}
-            hint={average === null ? "Pas encore d'avis" : "Sur 5"}
+            label="Catalogue médicaments"
+            value={medicationCount === null ? "–" : medicationCount}
+            hint="Spécialités disponibles"
+            tone="green"
+            href="/medecin/medicaments"
+          />
+          <KpiCard
+            label="Nouvelle ordonnance"
+            value="Rédiger"
+            hint="Pour un patient après consultation"
             tone="amber"
-            href={routes.dashboard}
+            href="/medecin/ordonnances"
           />
         </div>
       </section>
 
-      {/* Module 3 : Gestion du stock médical (Amira) */}
+      {/* Module 3 : Gestion du stock médical & Assistant IA */}
       <section aria-labelledby="kpi-stock">
         <div className="flex items-center justify-between mb-3">
           <h2 id="kpi-stock" className="dashboard-section-title mb-0">
-            Stock médical &amp; Consommables
+            Stock médical &amp; Consommables (avec Assistant IA 🤖)
           </h2>
           <Link
             href="/medecin/stock"
             className="text-xs font-semibold text-teal-700 hover:text-teal-800 hover:underline"
           >
-            Accéder à l&apos;inventaire complet →
+            Accéder à l&apos;inventaire complet &amp; Chatbot →
           </Link>
         </div>
         <div className="kpi-grid">
@@ -189,6 +228,37 @@ export default function MedecinHomePage() {
         </div>
       </section>
 
+      {/* Retours patients */}
+      <section aria-labelledby="kpi-feedback">
+        <h2 id="kpi-feedback" className="dashboard-section-title">
+          Retours des patients
+        </h2>
+        <div className="kpi-grid">
+          <KpiCard
+            label="Réclamations"
+            value={f ?? complaints.length}
+            hint={toHandle.length > 0 ? `${toHandle.length} à traiter` : "Aucune à traiter"}
+            tone={toHandle.length > 0 ? "red" : "teal"}
+            href={routes.list}
+          />
+          <KpiCard
+            label="Avis reçus"
+            value={f ?? reviews.length}
+            hint="Notes laissées après consultation"
+            tone="teal"
+            href={routes.list}
+          />
+          <KpiCard
+            label="Note moyenne"
+            value={f ?? (average === null ? "–" : `${average.toFixed(1)} ★`)}
+            hint={average === null ? "Pas encore d'avis" : "Sur 5"}
+            tone="amber"
+            href={routes.dashboard}
+          />
+        </div>
+      </section>
+
+      {/* Prochains rendez-vous */}
       <section aria-labelledby="next-rdv">
         <h2 id="next-rdv" className="dashboard-section-title">
           Prochains rendez-vous

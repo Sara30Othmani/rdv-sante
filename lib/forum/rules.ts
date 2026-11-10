@@ -75,21 +75,36 @@ export function validateReply(content: unknown): string[] {
   return [];
 }
 
-// --- Permissions -----------------------------------------------------------
+// --- Permissions & Clôture ------------------------------------------------
 // Les patients posent les questions ; patients et médecins répondent.
-// Seul l'auteur modifie son contenu. Il n'y a pas d'administrateur dans
-// l'application : la modération (suppression) revient aux médecins, comme
-// prévu pour models/ForumReport.ts.
+// RÈGLE MÉTIER : Dès qu'un médecin répond à une question, celle-ci est automatiquement
+// clôturée et PERSONNE (ni patient, ni autre médecin) ne peut répondre après la réponse du médecin.
 
 export const canAskQuestion = (actor: Actor) => actor.role === "PATIENT";
 
-export const canReply = (actor: Actor) =>
-  actor.role === "PATIENT" || actor.role === "DOCTOR";
+export const isQuestionClosed = (
+  q?: ForumQuestion | null,
+  replies?: ForumReply[]
+): boolean => {
+  if (!q) return false;
+  if (q.isClosed) return true;
+  if (replies && replies.some((r) => r.author_role === "DOCTOR")) return true;
+  return false;
+};
+
+export const canReply = (
+  actor: Actor,
+  question?: ForumQuestion | null,
+  replies?: ForumReply[]
+) => {
+  if (question && isQuestionClosed(question, replies)) return false;
+  return actor.role === "PATIENT" || actor.role === "DOCTOR";
+};
 
 const isModerator = (actor: Actor) => actor.role === "DOCTOR";
 
 export const canEditQuestion = (q: ForumQuestion, actor: Actor) =>
-  q.author_id === actor.id;
+  q.author_id === actor.id && !q.isClosed;
 
 export const canDeleteQuestion = (q: ForumQuestion, actor: Actor) =>
   q.author_id === actor.id || isModerator(actor);

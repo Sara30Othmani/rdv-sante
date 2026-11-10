@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { CLOSED_STATUSES, STATUS_CLASSES } from "@/lib/appointments";
+import { STATUS_CLASSES } from "@/lib/appointments";
 import { useAppointments } from "@/lib/useAppointments";
 
 const LIST_URL = "/patient/rendez-vous";
@@ -33,8 +33,6 @@ export default function ConsulterRDV() {
       </main>
     );
   }
-
-  const isClosed = CLOSED_STATUSES.includes(appointment.status);
 
   return (
     <main className="rdv-page">
@@ -79,13 +77,19 @@ export default function ConsulterRDV() {
         </dl>
 
         <div className="rdv-actions">
-          {!isClosed && (
+          {appointment.status === "En attente" && (
             <Link
               href={`/patient/rendez-vous/${appointment.id}/modifier`}
               className="btn-prendre-rdv"
             >
               Modifier ce rendez-vous
             </Link>
+          )}
+          {appointment.status === "Accepté" && (
+            <p className="rdv-hint">
+              Confirmé par le médecin : l&apos;horaire ne peut plus être modifié. Pour le
+              changer, annulez le rendez-vous depuis la liste puis reprenez-en un.
+            </p>
           )}
           {appointment.status === "Terminé" && (
             <Link href="/patient/feedbacks/form" className="btn-secondary">

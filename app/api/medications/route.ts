@@ -14,30 +14,34 @@ export async function GET(req: Request) {
 
   try {
     await connectDB();
-    const filter: Record<string, unknown> = { isActive: true };
+    const filter: Record<string, unknown> = { isActive: { $ne: false } };
 
     if (q) {
       filter.$or = [
         { name: { $regex: q, $options: "i" } },
         { genericName: { $regex: q, $options: "i" } },
         { category: { $regex: q, $options: "i" } },
+        { manufacturer: { $regex: q, $options: "i" } },
       ];
     }
     if (category && category !== "ALL") {
       filter.category = category;
     }
 
-    const list = await Medication.find(filter).sort({ name: 1 }).limit(100).lean();
+    const list = await Medication.find(filter).sort({ name: 1 }).limit(200).lean();
     return json(
       list.map((m) => ({
         id: String(m._id),
         name: m.name,
         genericName: m.genericName,
-        form: m.form,
+        form: m.form || "TABLET",
         dosage: m.dosage,
-        category: m.category,
+        category: m.category || "Général",
         manufacturer: m.manufacturer,
-        requiresPrescription: m.requiresPrescription,
+        requiresPrescription: Boolean(m.requiresPrescription),
+        contraindications: m.contraindications || [],
+        sideEffects: m.sideEffects || [],
+        createdAt: m.createdAt,
       }))
     );
   } catch (e) {
@@ -55,39 +59,34 @@ export async function POST(req: Request) {
     const body = await req.json();
     const name = String(body.name || "").trim();
     if (!name || name.length < 2) {
-      return fail(400, "Le nom de l'article est requis (minimum 2 caractères).");
+      return fail(400, "Le nom du médicament est requis (minimum 2 caractères).");
     }
 
     await connectDB();
 
-    // Vérifier si un article avec le même nom existe déjà
-    const existing = await Medication.findOne({
-      name: { $regex: `^${name}$`, $options: "i" },
-    }).lean();
+    const contraindications = Array.isArray(body.contraindications)
+      ? body.contraindications.map((s: any) => String(s).trim()).filter(Boolean)
+      : typeof body.contraindications === "string" && body.contraindications.trim()
+      ? body.contraindications.split("\n").map((s: string) => s.trim()).filter(Boolean)
+      : [];
 
-    if (existing) {
-      return json(
-        {
-          id: String(existing._id),
-          name: existing.name,
-          genericName: existing.genericName,
-          form: existing.form,
-          dosage: existing.dosage,
-          category: existing.category,
-          manufacturer: existing.manufacturer,
-        },
-        200
-      );
-    }
+    const sideEffects = Array.isArray(body.sideEffects)
+      ? body.sideEffects.map((s: any) => String(s).trim()).filter(Boolean)
+      : typeof body.sideEffects === "string" && body.sideEffects.trim()
+      ? body.sideEffects.split("\n").map((s: string) => s.trim()).filter(Boolean)
+      : [];
 
     const created = await Medication.create({
       name,
       genericName: body.genericName?.trim() || undefined,
-      form: body.form || "OTHER",
+      form: body.form || "TABLET",
       dosage: body.dosage?.trim() || undefined,
-      category: body.category?.trim() || "Divers",
+      category: body.category?.trim() || "Général",
       manufacturer: body.manufacturer?.trim() || undefined,
       requiresPrescription: Boolean(body.requiresPrescription),
+      contraindications,
+      sideEffects,
+      isActive: true,
       createdBy: user.id,
     });
 
@@ -100,6 +99,9 @@ export async function POST(req: Request) {
         dosage: created.dosage,
         category: created.category,
         manufacturer: created.manufacturer,
+        requiresPrescription: created.requiresPrescription,
+        contraindications: created.contraindications,
+        sideEffects: created.sideEffects,
       },
       201
     );

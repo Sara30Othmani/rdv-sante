@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   APPOINTMENT_STATUSES,
   CLOSED_STATUSES,
@@ -9,6 +9,11 @@ import {
 } from "@/lib/appointments";
 import { patchAppointment, useAppointments } from "@/lib/useAppointments";
 import { useUser } from "@/lib/session";
+import { apiJson } from "@/lib/api";
+import CreatePrescriptionModal from "@/components/prescriptions/CreatePrescriptionModal";
+import PrescriptionPrintModal, { type PrescriptionData } from "@/components/prescriptions/PrescriptionPrintModal";
+import "../../style.css";
+import "./rdv.css";
 
 function formatDate(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", {
@@ -20,259 +25,463 @@ function formatDate(date: string) {
 
 export default function MedecinRendezVousPage() {
   const user = useUser();
-  // L'API ne renvoie que les rendez-vous de ce médecin
   const { appointments: mine, loaded, error } = useAppointments();
 
-  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState("Tous");
   const [message, setMessage] = useState("");
+  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
 
-  const visible = mine
-    .filter((a) => filter === "Tous" || a.status === filter)
-    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<Appointment | null>(null);
+
+  const [saving, setSaving] = useState(false);
+
+  // Ordonnances
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [createAppt, setCreateAppt] = useState<any | null>(null);
+  const [printData, setPrintData] = useState<PrescriptionData | null>(null);
+
+  const loadPrescriptions = async () => {
+    try {
+      const data = await apiJson<any[]>("/api/prescriptions");
+      setPrescriptions(data);
+    } catch {
+      // Ignorer si pas connecté ou pas de prescription
+    }
+  };
+
+  useEffect(() => {
+    loadPrescriptions();
+  }, []);
+
+  const visible = useMemo(
+    () =>
+      [...mine]
+        .filter((a) => filter === "Tous" || a.status === filter)
+        .sort((a, b) =>
+          `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`),
+        ),
+    [mine, filter],
+  );
 
   const countOf = (status: Appointment["status"]) =>
     mine.filter((a) => a.status === status).length;
 
+  const noteOf = (a: Appointment) => notesDraft[a.id] ?? a.notes ?? "";
+
   async function update(
     id: string,
     changes: Parameters<typeof patchAppointment>[1],
-    successMessage: string
-  ) {
+    successMessage: string,
+  ): Promise<boolean> {
     try {
       await patchAppointment(id, changes);
       setMessage(successMessage);
+      return true;
     } catch (e) {
-      setMessage((e as Error).message || "Impossible d'enregistrer les modifications.");
+      setMessage(
+        e instanceof Error
+          ? e.message
+          : "Impossible d'enregistrer les modifications.",
+      );
+      return false;
     }
   }
 
-  const noteOf = (a: Appointment) => notesDraft[a.id] ?? a.notes;
+  async function saveNote() {
+    if (!selectedAppointment) return;
 
-  if (!loaded) {
-    return (
-      <main className="appointments-page">
-        <p>Chargement...</p>
-      </main>
+    setSaving(true);
+
+    const success = await update(
+      selectedAppointment.id,
+      { notes: noteOf(selectedAppointment) },
+      "Note de consultation enregistrée avec succès.",
     );
+
+    setSaving(false);
+
+    if (success) {
+      setSelectedAppointment(null);
+    }
   }
+
+  async function changeStatus(
+    appointment: Appointment,
+    status: Appointment["status"],
+  ) {
+    const messages: Record<string, string> = {
+      Accepté: "Rendez-vous accepté.",
+      Refusé: "Rendez-vous refusé.",
+      Terminé: "Consultation marquée comme terminée.",
+    };
+
+    await update(appointment.id, { status }, messages[status]);
+  }
+
+  const handleOpenPrint = (p: any) => {
+    setPrintData({
+      id: p.id,
+      patientName: p.patient?.name || "Patient",
+      patientEmail: p.patient?.email,
+      patientPhone: p.patient?.phone,
+      doctorName: p.doctor?.name || user.name,
+      specialty: p.appointment?.specialty || "Cabinet Médical",
+      consultationDate: p.appointment?.date,
+      issuedAt: p.issuedAt,
+      validUntil: p.validUntil,
+      status: p.status,
+      items: p.items,
+    });
+  };
 
   return (
     <main className="appointments-page">
       <header className="appointments-header">
         <div>
-          <span className="appointments-eyebrow">ESPACE PROFESSIONNEL</span>
-          <h1>Gestion des rendez-vous</h1>
+          <span className="appointments-eyebrow">ESPACE PROFESSIONNEL MÉDECIN</span>
+          <h1>Rendez-vous &amp; Consultations</h1>
           <p>
-            Bonjour {user.name}, retrouvez vos demandes et le suivi de vos
-            consultations.
+            Gérez vos demandes de consultations, vos notes cliniques et rédigez les ordonnances pour vos patients.
           </p>
         </div>
       </header>
 
-      <section className="appointment-kpis">
-        <div className="kpi-pill kpi-total">
-          <span className="kpi-dot" />
-          <span className="kpi-label">Demandes en attente</span>
-          <strong>{countOf("En attente")}</strong>
-        </div>
-        <div className="kpi-pill kpi-open">
-          <span className="kpi-dot" />
-          <span className="kpi-label">Rendez-vous acceptés</span>
-          <strong>{countOf("Accepté")}</strong>
-        </div>
-        <div className="kpi-pill kpi-closed">
-          <span className="kpi-dot" />
-          <span className="kpi-label">Consultations terminées</span>
-          <strong>{countOf("Terminé")}</strong>
-        </div>
-      </section>
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
       {message && (
-        <div className="doctor-feedback" role="status" aria-live="polite">
+        <div
+          className="doctor-feedback-banner"
+          role="status"
+          aria-live="polite"
+        >
+          <span>ℹ</span>
           <span>{message}</span>
           <button
             type="button"
+            className="doctor-feedback-close"
             onClick={() => setMessage("")}
-            aria-label="Fermer le message"
+            aria-label="Fermer"
           >
             ×
           </button>
         </div>
       )}
 
-      <section className="appointments-toolbar">
-        <div className="filter-container">
-          <label htmlFor="doctor-status-filter">Filtrer par statut</label>
-          <select
-            id="doctor-status-filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="Tous">Tous les rendez-vous</option>
-            {APPOINTMENT_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+      {error && <p className="appointments-error">{error}</p>}
+
+      <section className="doctor-appointments-card">
+        <div className="doctor-toolbar">
+          <div>
+            <h2>Planning des consultations</h2>
+            <p>
+              {loaded ? `${mine.length} rendez-vous au total` : "Chargement…"}
+            </p>
+          </div>
+
+          <div className="doctor-filter-group">
+            <label htmlFor="doctor-status-filter">Filtrer par statut :</label>
+            <select
+              id="doctor-status-filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            >
+              <option value="Tous">Tous ({mine.length})</option>
+              {APPOINTMENT_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status} ({countOf(status)})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <p className="appointments-result-count">{visible.length} rendez-vous</p>
+
+        <div className="doctor-table-scroll">
+          <table className="doctor-appointments-table">
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Date</th>
+                <th>Heure</th>
+                <th>Motif</th>
+                <th>Statut</th>
+                <th>Note</th>
+                <th>Actions</th>
+                <th>Ordonnance</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {visible.map((appointment) => {
+                const isPending = appointment.status === "En attente";
+                const isAccepted = appointment.status === "Accepté";
+                const isDone = appointment.status === "Terminé";
+                const isClosed = CLOSED_STATUSES.includes(appointment.status);
+
+                // Ordonnance existante pour ce rdv
+                const apptPresc = prescriptions.find(
+                  (p) => String(p.appointmentId) === String(appointment.id)
+                );
+
+                return (
+                  <tr key={appointment.id}>
+                    <td>
+                      <div className="doctor-patient-cell">
+                        <div className="doctor-patient-avatar">
+                          {appointment.patientName?.charAt(0)?.toUpperCase() ||
+                            "P"}
+                        </div>
+                        <strong>{appointment.patientName}</strong>
+                      </div>
+                    </td>
+
+                    <td>{formatDate(appointment.date)}</td>
+
+                    <td>
+                      <strong>{appointment.time}</strong>
+                    </td>
+
+                    <td className="doctor-reason-cell">
+                      {appointment.reason || "Non renseigné"}
+                    </td>
+
+                    <td>
+                      <span
+                        className={`status-badge ${STATUS_CLASSES[appointment.status]}`}
+                      >
+                        <span className="status-indicator" />
+                        {appointment.status}
+                      </span>
+
+                      {appointment.status === "Annulé" &&
+                        appointment.cancelReason && (
+                          <p className="doctor-cancel-reason">
+                            Motif : {appointment.cancelReason}
+                          </p>
+                        )}
+                    </td>
+
+                    <td>
+                      {isAccepted || isDone ? (
+                        <button
+                          type="button"
+                          className="doctor-note-button"
+                          onClick={() => setSelectedAppointment(appointment)}
+                        >
+                          {appointment.notes || notesDraft[appointment.id]
+                            ? "Modifier la note"
+                            : "Ajouter une note"}
+                        </button>
+                      ) : (
+                        <span className="doctor-no-note">—</span>
+                      )}
+                    </td>
+
+                    <td>
+                      <div className="doctor-row-actions">
+                        {isPending && (
+                          <>
+                            <button
+                              type="button"
+                              className="doctor-table-accept"
+                              onClick={() =>
+                                changeStatus(appointment, "Accepté")
+                              }
+                            >
+                              Accepter
+                            </button>
+
+                            <button
+                              type="button"
+                              className="doctor-table-reject"
+                              onClick={() =>
+                                changeStatus(appointment, "Refusé")
+                              }
+                            >
+                              Refuser
+                            </button>
+                          </>
+                        )}
+
+                        {isAccepted && (
+                          <button
+                            type="button"
+                            className="doctor-table-finish"
+                            onClick={() => changeStatus(appointment, "Terminé")}
+                          >
+                            Terminer
+                          </button>
+                        )}
+
+                        {isClosed && !isDone && (
+                          <span className="doctor-closed-label">
+                            Demande clôturée
+                          </span>
+                        )}
+
+                        {isDone && (
+                          <span className="doctor-completed-label">
+                            Consultation terminée
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="doctor-prescription-cell">
+                        {apptPresc ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPrint(apptPresc)}
+                            className="px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-semibold flex items-center gap-1 border border-teal-200 shadow-2xs transition-colors"
+                          >
+                            <span>📄</span>
+                            <span>Voir ordonnance</span>
+                          </button>
+                        ) : isDone || isAccepted ? (
+                          <button
+                            type="button"
+                            onClick={() => setCreateAppt(appointment)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold flex items-center gap-1 border border-emerald-200 shadow-2xs transition-colors"
+                          >
+                            <span>✏️</span>
+                            <span>Rédiger ordonnance</span>
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {visible.length === 0 && (
+                <tr>
+                  <td colSpan={8}>
+                    <div className="doctor-table-empty">
+                      <span>▦</span>
+                      <strong>Aucun rendez-vous trouvé</strong>
+                      <p>Aucune demande ne correspond au filtre sélectionné.</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="doctor-table-footer">
+          <span>
+            {visible.length} rendez-vous affiché{visible.length > 1 ? "s" : ""}
+          </span>
+        </div>
       </section>
 
-      {visible.length === 0 ? (
-        <section className="appointments-empty">
-          <div className="empty-icon">▦</div>
-          <h2>Aucun rendez-vous</h2>
-          <p>Aucune demande ne correspond au filtre sélectionné.</p>
-        </section>
-      ) : (
-        <section className="appointments-list">
-          {visible.map((appointment) => {
-            const isPending = appointment.status === "En attente";
-            const isAccepted = appointment.status === "Accepté";
-            const isDone = appointment.status === "Terminé";
-            const isClosed = CLOSED_STATUSES.includes(appointment.status);
-            const date = new Date(`${appointment.date}T12:00:00`);
+      {/* Modal Création Ordonnance */}
+      <CreatePrescriptionModal
+        isOpen={Boolean(createAppt)}
+        onClose={() => setCreateAppt(null)}
+        appointment={createAppt}
+        onCreated={() => {
+          setCreateAppt(null);
+          loadPrescriptions();
+          setMessage("Ordonnance délivrée avec succès.");
+        }}
+      />
 
-            return (
-              <article
-                key={appointment.id}
-                className="appointment-card doctor-appointment-card"
+      {/* Modal Impression Ordonnance */}
+      <PrescriptionPrintModal
+        isOpen={Boolean(printData)}
+        onClose={() => setPrintData(null)}
+        data={printData}
+      />
+
+      {/* Popup des notes */}
+      {selectedAppointment && (
+        <div
+          className="doctor-modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !saving) {
+              setSelectedAppointment(null);
+            }
+          }}
+        >
+          <section
+            className="doctor-note-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="doctor-modal-title"
+          >
+            <div className="doctor-modal-header">
+              <div>
+                <span className="doctor-modal-eyebrow">
+                  DOSSIER DE CONSULTATION
+                </span>
+                <h2 id="doctor-modal-title">Note de consultation</h2>
+                <p>
+                  Patient : <strong>{selectedAppointment.patientName}</strong>
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="doctor-modal-close"
+                onClick={() => setSelectedAppointment(null)}
+                disabled={saving}
+                aria-label="Fermer"
               >
-                <div className="appointment-date-block">
-                  <span className="appointment-date-month">
-                    {date.toLocaleDateString("fr-FR", { month: "short" })}
-                  </span>
-                  <strong className="appointment-date-day">
-                    {date.toLocaleDateString("fr-FR", { day: "2-digit" })}
-                  </strong>
-                  <span className="appointment-date-year">
-                    {appointment.date.slice(0, 4)}
-                  </span>
-                </div>
+                ×
+              </button>
+            </div>
 
-                <div className="appointment-doctor">
-                  <span className="appointment-section-label">PATIENT</span>
-                  <h3>{appointment.patientName}</h3>
-                  <p className="appointment-specialty">
-                    {appointment.reason || "Motif non renseigné"}
-                  </p>
-                  <span
-                    className={`status-badge ${STATUS_CLASSES[appointment.status]}`}
-                  >
-                    <span className="status-indicator" />
-                    {appointment.status}
-                  </span>
-                </div>
+            <div className="doctor-modal-details">
+              <span>📅 {formatDate(selectedAppointment.date)}</span>
+              <span>◷ {selectedAppointment.time}</span>
+            </div>
 
-                <div className="appointment-details">
-                  <div className="appointment-detail-item">
-                    <span className="detail-label">Date</span>
-                    <strong>{formatDate(appointment.date)}</strong>
-                  </div>
-                  <div className="appointment-detail-item">
-                    <span className="detail-label">Heure</span>
-                    <strong>{appointment.time}</strong>
-                  </div>
-                  <div className="appointment-detail-item">
-                    <span className="detail-label">Note de consultation</span>
-                    <strong>
-                      {appointment.notes ? "Note enregistrée" : "Aucune note"}
-                    </strong>
-                  </div>
-                </div>
+            <label className="doctor-modal-label" htmlFor="consultation-note">
+              Observations de la consultation
+            </label>
 
-                <div className="doctor-appointment-actions">
-                  {isPending && (
-                    <>
-                      <button
-                        type="button"
-                        className="doctor-action-accept"
-                        onClick={() =>
-                          update(appointment.id, { status: "Accepté" }, "Rendez-vous accepté.")
-                        }
-                      >
-                        ✓ Accepter
-                      </button>
-                      <button
-                        type="button"
-                        className="doctor-action-reject"
-                        onClick={() =>
-                          update(appointment.id, { status: "Refusé" }, "Rendez-vous refusé.")
-                        }
-                      >
-                        ✕ Refuser
-                      </button>
-                    </>
-                  )}
+            <textarea
+              id="consultation-note"
+              value={noteOf(selectedAppointment)}
+              onChange={(e) =>
+                setNotesDraft((prev) => ({
+                  ...prev,
+                  [selectedAppointment.id]: e.target.value,
+                }))
+              }
+              rows={7}
+              maxLength={2000}
+              placeholder="Saisissez vos observations..."
+              autoFocus
+            />
 
-                  {isAccepted && (
-                    <button
-                      type="button"
-                      className="doctor-action-accept"
-                      onClick={() =>
-                        update(
-                          appointment.id,
-                          { status: "Terminé" },
-                          "Consultation marquée comme terminée."
-                        )
-                      }
-                    >
-                      ✓ Terminer
-                    </button>
-                  )}
+            <div className="doctor-modal-counter">
+              {noteOf(selectedAppointment).length}/2000 caractères
+            </div>
 
-                  {isClosed && (
-                    <span className="closed-message">Demande clôturée</span>
-                  )}
-                </div>
+            <div className="doctor-modal-actions">
+              <button
+                type="button"
+                className="doctor-modal-cancel"
+                onClick={() => setSelectedAppointment(null)}
+                disabled={saving}
+              >
+                Annuler
+              </button>
 
-                {/* Notes après consultation */}
-                {(isAccepted || isDone) && (
-                  <div className="doctor-notes">
-                    <label htmlFor={`note-${appointment.id}`}>
-                      Notes de consultation
-                    </label>
-
-                    <textarea
-                      id={`note-${appointment.id}`}
-                      value={noteOf(appointment)}
-                      onChange={(e) =>
-                        setNotesDraft((prev) => ({
-                          ...prev,
-                          [appointment.id]: e.target.value,
-                        }))
-                      }
-                      rows={3}
-                      maxLength={2000}
-                      placeholder="Ajouter les observations de la consultation..."
-                    />
-
-                    <div className="doctor-notes-footer">
-                      <span>{noteOf(appointment).length}/2000</span>
-                      <button
-                        type="button"
-                        className="doctor-action-save"
-                        onClick={() =>
-                          update(
-                            appointment.id,
-                            { notes: noteOf(appointment) },
-                            "Note de consultation enregistrée."
-                          )
-                        }
-                      >
-                        Enregistrer la note
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </section>
+              <button
+                type="button"
+                className="doctor-modal-save"
+                onClick={saveNote}
+                disabled={saving}
+              >
+                {saving ? "Enregistrement..." : "Enregistrer la note"}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </main>
   );

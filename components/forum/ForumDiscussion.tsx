@@ -7,7 +7,7 @@ import type { RoleSegment } from "@/lib/roles";
 import { forumRoutes } from "@/lib/forum/routes";
 import type { ForumQuestion, ForumReply } from "@/lib/forum/types";
 import {
-  canDeleteQuestion, canDeleteReply, canEditQuestion, canEditReply, canReply, cleanText, LIMITS, validateReply,
+  canDeleteQuestion, canDeleteReply, canEditQuestion, canEditReply, canReply, cleanText, isQuestionClosed, LIMITS, validateReply,
 } from "@/lib/forum/rules";
 import {
   createReply, deleteQuestion, deleteReply, getQuestion, listReplies, updateReply,
@@ -88,7 +88,12 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
       const reply = await createReply(user, question.id, draft);
       setReplies((list) => [...list, reply]);
       setDraft("");
-      flash("Réponse publiée.");
+      if (user.role === "DOCTOR") {
+        setQuestion((prev) => (prev ? { ...prev, isClosed: true } : prev));
+        flash("Réponse du médecin enregistrée. La question est désormais clôturée.");
+      } else {
+        flash("Réponse publiée.");
+      }
     } catch (err) {
       setDraftError((err as Error).message);
     } finally {
@@ -103,7 +108,7 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
     setEditError("");
     try {
       const updated = await updateReply(user, replyId, editText);
-      setReplies((list) => list.map((x) => (x.id === replyId ? updated : x)));
+      setReplies((list) => list.map((r) => (r.id === replyId ? updated : r)));
       setEditingId(null);
       flash("Réponse modifiée.");
     } catch (err) {
@@ -120,32 +125,46 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
       if (pendingDelete.kind === "question") {
         await deleteQuestion(user, question.id);
         router.push(routes.list);
-        return;
+      } else {
+        await deleteReply(user, pendingDelete.id);
+        setReplies((list) => list.filter((r) => r.id !== pendingDelete.id));
+        setPendingDelete(null);
+        flash("Réponse supprimée.");
       }
-      await deleteReply(user, pendingDelete.id);
-      setReplies((list) => list.filter((x) => x.id !== pendingDelete.id));
-      setPendingDelete(null);
-      flash("Réponse supprimée.");
     } catch (err) {
-      setPendingDelete(null);
-      setNotice("");
       setError((err as Error).message);
+      setPendingDelete(null);
     } finally {
       setDeleting(false);
     }
   }
 
   const back = (
-    <Link href={routes.list} className={buttonClass("ghost", "sm", "-ml-2.5")}>
-      <ArrowLeftIcon size={16} />
+    <Link
+      href={routes.list}
+      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+    >
+      <ArrowLeftIcon size={14} />
       Retour au forum
     </Link>
   );
 
   if (question === undefined)
-    return <p role="status" className="py-16 text-center text-sm text-slate-500">Chargement de la discussion…</p>;
+    return (
+      <main className="max-w-3xl space-y-4">
+        {back}
+        <div className="rounded-2xl border border-slate-200 bg-white p-7">
+          <div className="h-4 w-1/4 rounded bg-slate-100 motion-safe:animate-pulse" />
+          <div className="mt-4 h-6 w-2/3 rounded bg-slate-100 motion-safe:animate-pulse" />
+          <div className="mt-4 space-y-2">
+            <div className="h-3 w-full rounded bg-slate-100 motion-safe:animate-pulse" />
+            <div className="h-3 w-5/6 rounded bg-slate-100 motion-safe:animate-pulse" />
+          </div>
+        </div>
+      </main>
+    );
 
-  if (question === null)
+  if (!question)
     return (
       <main className="max-w-3xl space-y-4">
         {back}
@@ -161,6 +180,7 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
 
   const q = question;
   const n = replies.length;
+  const isClosed = isQuestionClosed(q, replies);
   const showQuestionActions = canEditQuestion(q, user) || canDeleteQuestion(q, user);
 
   return (
@@ -171,17 +191,32 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
       {error && <Notice tone="error" onDismiss={() => setError("")}>{error}</Notice>}
 
       {/* Question d'origine */}
-      <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+      <article className={`overflow-hidden rounded-2xl border bg-white shadow-xs ${
+        isClosed ? "border-emerald-200" : "border-slate-200"
+      }`}>
         <div className="px-5 pt-5 pb-6 sm:px-7 sm:pt-7">
-          <AuthorLine
-            name={q.author_name}
-            role={q.author_role}
-            createdAt={q.created_at}
-            updatedAt={q.updated_at}
-            pending={q.syncStatus === "pending"}
-            isMe={q.author_id === user.id}
-          />
-          <h1 className="mt-5 text-xl leading-snug font-semibold tracking-tight text-pretty text-slate-900 sm:text-2xl">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <AuthorLine
+              name={q.author_name}
+              role={q.author_role}
+              createdAt={q.created_at}
+              updatedAt={q.updated_at}
+              pending={q.syncStatus === "pending"}
+              isMe={q.author_id === user.id}
+            />
+
+            {isClosed ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs">
+                <span>🔒</span> Clôturée — Réponse médicale validée
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                <span>💬</span> Ouverte aux réponses
+              </span>
+            )}
+          </div>
+
+          <h1 className="text-xl leading-snug font-semibold tracking-tight text-pretty text-slate-900 sm:text-2xl">
             {q.title}
           </h1>
           <p className="mt-3 max-w-prose text-[15px] leading-7 whitespace-pre-line text-slate-700">{q.content}</p>
@@ -217,7 +252,7 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
 
         {n === 0 ? (
           <p className="mt-3 rounded-xl border border-dashed border-slate-300 bg-white px-5 py-6 text-center text-sm text-slate-500">
-            Pas encore de réponse. {canReply(user) ? "Partagez votre expérience ci-dessous, ou revenez plus tard." : "Revenez plus tard."}
+            Pas encore de réponse. {canReply(user, q, replies) ? "Partagez votre expérience ci-dessous, ou revenez plus tard." : "Revenez plus tard."}
           </p>
         ) : (
           <ol className="mt-4">
@@ -234,19 +269,28 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
                   </div>
 
                   <div
-                    className={`min-w-0 flex-1 rounded-xl border px-4 py-3.5 sm:px-5 ${
-                      doctor ? "border-teal-200 bg-teal-50/50" : "border-slate-200 bg-white"
+                    className={`min-w-0 flex-1 rounded-xl border px-4 py-3.5 sm:px-5 shadow-xs ${
+                      doctor
+                        ? "border-emerald-300 bg-gradient-to-r from-emerald-50/90 to-teal-50/70 ring-1 ring-emerald-200"
+                        : "border-slate-200 bg-white"
                     }`}
                   >
-                    <AuthorLine
-                      name={r.author_name}
-                      role={r.author_role}
-                      createdAt={r.created_at}
-                      updatedAt={r.updated_at}
-                      pending={r.syncStatus === "pending"}
-                      isMe={r.author_id === user.id}
-                      showAvatar={false}
-                    />
+                    <div className="flex items-center justify-between">
+                      <AuthorLine
+                        name={r.author_name}
+                        role={r.author_role}
+                        createdAt={r.created_at}
+                        updatedAt={r.updated_at}
+                        pending={r.syncStatus === "pending"}
+                        isMe={r.author_id === user.id}
+                        showAvatar={false}
+                      />
+                      {doctor && (
+                        <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5">
+                          ✓ Réponse certifiée médecin (Clôture)
+                        </span>
+                      )}
+                    </div>
 
                     {editing ? (
                       <div className="mt-3">
@@ -293,7 +337,7 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
 
                     {!editing && (canEditReply(r, user) || canDeleteReply(r, user)) && (
                       <div className="mt-2 -mb-1 -ml-2.5 flex gap-1">
-                        {canEditReply(r, user) && (
+                        {canEditReply(r, user) && !isClosed && (
                           <button
                             type="button"
                             onClick={() => {
@@ -327,8 +371,21 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
         )}
       </section>
 
-      {/* Nouvelle réponse */}
-      {canReply(user) && (
+      {/* État de clôture ou formulaire de nouvelle réponse */}
+      {isClosed ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-6 sm:p-7 text-center shadow-xs">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-200 text-emerald-800 text-xl font-bold">
+            🔒
+          </div>
+          <h3 className="mt-3 text-base font-bold text-slate-900">
+            Cette question est clôturée
+          </h3>
+          <p className="mt-1.5 text-sm text-slate-700 max-w-lg mx-auto">
+            Un médecin professionnel a apporté une réponse médicale à cette question.
+            Conformément aux règles du cabinet, la discussion est automatiquement clôturée et aucune nouvelle réponse ne peut être ajoutée.
+          </p>
+        </div>
+      ) : canReply(user, q, replies) ? (
         <form
           onSubmit={postReply}
           noValidate
@@ -338,8 +395,10 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
           <div className="flex gap-3 sm:gap-4">
             <span className="hidden sm:block"><Avatar name={user.name} role={user.role} /></span>
             <div className="min-w-0 flex-1">
-              <label id="reply-title" htmlFor="reply" className="block text-sm font-medium text-slate-900">
-                Ajouter une réponse
+              <label id="reply-title" htmlFor="reply" className="block text-sm font-semibold text-slate-900">
+                {user.role === "DOCTOR"
+                  ? "Répondre en tant que médecin (clôturera la discussion)"
+                  : "Ajouter une réponse"}
               </label>
               <textarea
                 id="reply"
@@ -350,7 +409,11 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
                 }}
                 rows={4}
                 maxLength={LIMITS.replyMax}
-                placeholder="Partagez votre expérience ou une information utile…"
+                placeholder={
+                  user.role === "DOCTOR"
+                    ? "Rédigez votre réponse médicale d'expert. Dès publication, la question sera marquée comme résolue et clôturée..."
+                    : "Partagez votre expérience ou une information utile…"
+                }
                 aria-invalid={!!draftError}
                 aria-describedby="reply-footer reply-hint"
                 className={`mt-2 resize-y ${inputClass(!!draftError)}`}
@@ -358,17 +421,23 @@ function QuestionContent({ segment }: { segment: RoleSegment }) {
               <FieldFooter id="reply-footer" error={draftError} length={cleanText(draft).length} max={LIMITS.replyMax} />
               <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p id="reply-hint" className="text-xs leading-relaxed text-slate-500">
-                  Restez bienveillant et ne partagez pas de données médicales personnelles.
+                  {user.role === "DOCTOR"
+                    ? "⚕️ Votre réponse fera foi d'expertise et clôturera le fil."
+                    : "Restez bienveillant et ne partagez pas de données médicales personnelles."}
                 </p>
                 <button type="submit" disabled={posting} className={buttonClass("primary", "md", "w-full sm:w-auto")}>
                   <SendIcon size={16} />
-                  {posting ? "Publication…" : "Publier la réponse"}
+                  {posting
+                    ? "Publication…"
+                    : user.role === "DOCTOR"
+                    ? "Publier & Clôturer la question"
+                    : "Publier la réponse"}
                 </button>
               </div>
             </div>
           </div>
         </form>
-      )}
+      ) : null}
 
       <ConfirmDialog
         open={pendingDelete !== null}

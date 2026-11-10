@@ -7,7 +7,11 @@ import type {
   QuestionInput,
 } from "./types";
 import {
+  AI_AUTHOR,
   canAskQuestion,
+  canRequestAiAnalysis,
+  isAiReply,
+  LIMITS,
   canDeleteQuestion,
   canDeleteReply,
   canEditQuestion,
@@ -85,8 +89,14 @@ export const getQuestion = async (id: string) =>
 export async function listReplies(questionId: string): Promise<ForumReply[]> {
   const db = await getDB();
   const replies = await db.getAllFromIndex("forumReplies", "by-question", questionId);
-  return replies.sort((a, b) => a.created_at.localeCompare(b.created_at));
+  return sortReplies(replies);
 }
+
+/** Ordre du fil : la réponse de l'IA d'abord, puis les autres par date. */
+export const sortReplies = (replies: ForumReply[]) =>
+  [...replies].sort(
+    (a, b) => Number(isAiReply(b)) - Number(isAiReply(a)) || a.created_at.localeCompare(b.created_at),
+  );
 
 // --- Questions -------------------------------------------------------------
 
@@ -112,6 +122,10 @@ export async function createQuestion(
     syncStatus: "pending",
     isClosed: false,
   };
+  if (input.photo) {
+    question.photo = input.photo;
+    question.ai_analysis = "pending";
+  }
   await (await getDB()).add("forumQuestions", question);
   return question;
 }
@@ -123,8 +137,9 @@ export async function updateQuestion(
 ): Promise<ForumQuestion> {
   const user = requireActor(actor);
   const db = await getDB();
-  const tx = db.transaction("forumQuestions", "readwrite");
-  const old = await tx.store.get(id);
+  const tx = db.transaction(["forumQuestions", "forumReplies", "deleted"], "readwrite");
+  const store = tx.objectStore("forumQuestions");
+  const old = await store.get(id);
   if (!old) throw new ForumError("Question introuvable.", "NOT_FOUND");
   if (!canEditQuestion(old, user))
     throw new ForumError(
@@ -135,6 +150,8 @@ export async function updateQuestion(
     );
   assertValid(validateQuestion(input));
 
+  // Seuls le titre, le contenu et la photo sont modifiables : id, auteur et
+  // date de création viennent de l'enregistrement existant.
   const next: ForumQuestion = {
     ...old,
     title: cleanText(input.title),
@@ -142,7 +159,26 @@ export async function updateQuestion(
     updated_at: now(),
     syncStatus: "pending",
   };
-  await tx.store.put(next);
+
+  // Photo : `undefined` = inchangée. Nouvelle photo ou photo retirée : la
+  // réponse de l'IA ne correspond plus, elle est supprimée (et refaite si
+  // une nouvelle photo est jointe).
+  const photo = input.photo === undefined ? old.photo : input.photo || undefined;
+  if (photo !== old.photo) {
+    const replies = tx.objectStore("forumReplies");
+    const aiReplies = (await replies.index("by-question").getAll(id)).filter(isAiReply);
+    await Promise.all(
+      aiReplies.flatMap((r) => [replies.delete(r.id), tx.objectStore("deleted").put({ id: r.id })]),
+    );
+    if (photo) {
+      next.photo = photo;
+      next.ai_analysis = "pending";
+    } else {
+      delete next.photo;
+      delete next.ai_analysis;
+    }
+  }
+  await store.put(next);
   await tx.done;
   return next;
 }
@@ -272,6 +308,70 @@ export async function deleteReply(actor: Actor | null | undefined, id: string) {
     tx.objectStore("deleted").put({ id }),
   ]);
   await tx.done;
+}
+
+// --- Analyse de la photo par l'IA -------------------------------------------
+// L'appel au modèle se fait côté serveur (/api/forum/analyze-photo, la clé
+// d'API n'est jamais envoyée au navigateur) ; ces fonctions enregistrent le
+// résultat localement, comme les autres réponses.
+
+function requireAiAccess(question: ForumQuestion | undefined, actor: Actor) {
+  if (!question) throw new ForumError("Question introuvable.", "NOT_FOUND");
+  if (!canRequestAiAnalysis(question, actor))
+    throw new ForumError("Seul l'auteur de la question peut demander l'analyse de sa photo.", "FORBIDDEN");
+  return question;
+}
+
+/**
+ * Enregistre la réponse de l'IA comme première réponse de la question.
+ * Remplace une éventuelle réponse précédente de l'IA.
+ */
+export async function saveAiReply(
+  actor: Actor | null | undefined,
+  questionId: string,
+  content: unknown,
+): Promise<ForumReply> {
+  const user = requireActor(actor);
+  const text = cleanText(content).slice(0, LIMITS.aiReplyMax);
+  if (!text) throw new ForumError("L'analyse de l'IA est vide.", "VALIDATION");
+
+  const db = await getDB();
+  const tx = db.transaction(["forumQuestions", "forumReplies"], "readwrite");
+  const questions = tx.objectStore("forumQuestions");
+  const question = requireAiAccess(await questions.get(questionId), user);
+
+  const replies = tx.objectStore("forumReplies");
+  const previous = (await replies.index("by-question").getAll(questionId)).filter(isAiReply);
+  await Promise.all(previous.map((r) => replies.delete(r.id)));
+
+  const t = now();
+  const reply: ForumReply = {
+    id: crypto.randomUUID(),
+    question_id: question.id,
+    author_id: AI_AUTHOR.id,
+    author_name: AI_AUTHOR.name,
+    author_role: "AI",
+    content: text,
+    created_at: t,
+    updated_at: t,
+    syncStatus: "pending",
+  };
+  await replies.add(reply);
+  await questions.put({ ...question, ai_analysis: "done" });
+  await tx.done;
+  return reply;
+}
+
+/** Marque l'analyse comme échouée (l'auteur pourra la relancer). */
+export async function markAiAnalysisFailed(actor: Actor | null | undefined, questionId: string) {
+  const user = requireActor(actor);
+  const db = await getDB();
+  const tx = db.transaction("forumQuestions", "readwrite");
+  const question = requireAiAccess(await tx.store.get(questionId), user);
+  const next: ForumQuestion = { ...question, ai_analysis: "failed" };
+  await tx.store.put(next);
+  await tx.done;
+  return next;
 }
 
 // --- Synchronisation (simulée, comme pour les feedbacks) --------------------

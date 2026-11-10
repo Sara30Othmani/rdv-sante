@@ -196,6 +196,10 @@ MAILTRAP_FROM=RDV Santé <noreply@rdv-sante.local>
 
 # Application
 APP_URL=http://localhost:3000
+
+# Forum : analyse des photos par l'IA (Google Gemini, clé gratuite sur https://aistudio.google.com/apikey)
+GEMINI_API_KEY=...
+# GEMINI_MODEL=gemini-flash-latest   (facultatif)
 ```
 
 Charger les données de démonstration (⚠ **vide** les collections, développement uniquement) :

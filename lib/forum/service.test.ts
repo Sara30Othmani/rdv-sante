@@ -213,14 +213,14 @@ describe("photo et réponse de l'IA", () => {
 
   it("la réponse de l'IA reste la première, même après d'autres réponses", async () => {
     const q = await createQuestion(sara, { ...valid, photo });
-    await createReply(doctor, q.id, "Réponse du médecin");
-    await new Promise((r) => setTimeout(r, 5)); // dates distinctes
     await createReply(mohamed, q.id, "Réponse d'un patient");
+    await new Promise((r) => setTimeout(r, 5)); // dates distinctes
+    await createReply(doctor, q.id, "Réponse du médecin");
     const ai = await saveAiReply(sara, q.id, "Analyse de la photo");
     expect(ai.author_role).toBe("AI");
     const replies = await listReplies(q.id);
     expect(replies.map((r) => r.content)).toEqual([
-      "Analyse de la photo", "Réponse du médecin", "Réponse d'un patient",
+      "Analyse de la photo", "Réponse d'un patient", "Réponse du médecin",
     ]);
     expect((await getQuestion(q.id))?.ai_analysis).toBe("done");
   });
@@ -244,7 +244,7 @@ describe("photo et réponse de l'IA", () => {
   it("une nouvelle photo remplace l'analyse ; sans photo, l'analyse disparaît", async () => {
     const q = await createQuestion(sara, { ...valid, photo });
     await saveAiReply(sara, q.id, "Analyse 1");
-    await createReply(doctor, q.id, "Réponse du médecin");
+    await createReply(mohamed, q.id, "Réponse d'un patient");
 
     // Titre modifié, photo inchangée : l'analyse reste
     await updateQuestion(sara, q.id, { ...valid, title: "Nouveau titre ici", photo });
@@ -252,13 +252,13 @@ describe("photo et réponse de l'IA", () => {
 
     const changed = await updateQuestion(sara, q.id, { ...valid, photo: photo2 });
     expect(changed.ai_analysis).toBe("pending");
-    expect((await listReplies(q.id)).map((r) => r.content)).toEqual(["Réponse du médecin"]);
+    expect((await listReplies(q.id)).map((r) => r.content)).toEqual(["Réponse d'un patient"]);
 
     await saveAiReply(sara, q.id, "Analyse 2");
     const removed = await updateQuestion(sara, q.id, { ...valid, photo: null });
     expect(removed.photo).toBeUndefined();
     expect(removed.ai_analysis).toBeUndefined();
-    expect((await listReplies(q.id)).map((r) => r.content)).toEqual(["Réponse du médecin"]);
+    expect((await listReplies(q.id)).map((r) => r.content)).toEqual(["Réponse d'un patient"]);
   });
 
   it("une analyse échouée peut être relancée", async () => {

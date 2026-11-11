@@ -219,8 +219,7 @@ async function main() {
       type: "COMPLAINT",
       subject: "Léger retard de consultation",
       content: "Près de 30 minutes de retard sur l'horaire prévu.",
-      status: "CLOSED",
-      response: "Nous nous excusons pour ce délai lié à une urgence antérieure.",
+      status: "OPEN",
     },
   ]);
 

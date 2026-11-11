@@ -69,14 +69,6 @@ export async function PATCH(
         appt.status = "CANCELLED";
         if (why) appt.cancelReason = why;
       } else {
-        // Une fois accepté par le médecin, l'horaire est figé : le patient peut
-        // seulement annuler (puis reprendre un nouveau rendez-vous).
-        if (appt.status !== "PENDING")
-          return fail(
-            409,
-            "Ce rendez-vous a été accepté par le médecin : il ne peut plus être modifié. Vous pouvez l'annuler."
-          );
-
         const date = body.date ?? appt.date;
         const time = body.time ?? appt.time;
         const reason = (body.reason ?? appt.reason).trim();
@@ -91,6 +83,8 @@ export async function PATCH(
           const profile = await DoctorProfile.findOne({ userId: appt.doctorId }).lean();
           if (!profile || !slotsForDate(getScheduleOf(profile), date).includes(time))
             return fail(400, "Ce créneau n'est pas proposé par ce médecin ce jour-là.");
+          // Si le RDV était accepté, le déplacer le fait repasser En attente de validation
+          if (appt.status === "ACCEPTED") appt.status = "PENDING";
         }
         appt.date = date;
         appt.time = time;

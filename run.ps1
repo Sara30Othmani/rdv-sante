@@ -10,8 +10,13 @@ Write-Host ""
 if (-not (Test-Path ".env.local")) {
     Write-Host "[INFO] Creation de .env.local..." -ForegroundColor Yellow
     @"
-MONGODB_URI=mongodb://localhost:27017/sante-rdv
+MONGODB_URI=mongodb://127.0.0.1:27017/sante-rdv
+JWT_ACCESS_SECRET=dev-access-secret-rdv-sante-2026-key
+JWT_REFRESH_SECRET=dev-refresh-secret-rdv-sante-2026-key
+APP_URL=http://localhost:3000
 ALLOW_DEMO_LOGIN=true
+GEMINI_MODEL=gemini-1.5-flash
+GEMINI_API_KEY=
 "@ | Out-File -FilePath ".env.local" -Encoding utf8
 }
 

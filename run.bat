@@ -20,8 +20,13 @@ if %errorlevel% neq 0 (
 if not exist ".env.local" (
     echo [INFO] Creation du fichier .env.local...
     (
-        echo MONGODB_URI=mongodb://localhost:27017/sante-rdv
+        echo MONGODB_URI=mongodb://127.0.0.1:27017/sante-rdv
+        echo JWT_ACCESS_SECRET=dev-access-secret-rdv-sante-2026-key
+        echo JWT_REFRESH_SECRET=dev-refresh-secret-rdv-sante-2026-key
+        echo APP_URL=http://localhost:3000
         echo ALLOW_DEMO_LOGIN=true
+        echo GEMINI_MODEL=gemini-1.5-flash
+        echo GEMINI_API_KEY=
     ) > .env.local
 )
 

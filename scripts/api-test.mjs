@@ -12,7 +12,10 @@ async function login(email) {
     credentials: "include",
   });
   if (!res.ok) throw new Error(`login ${email} → ${res.status}`);
-  return await res.json();
+  const user = await res.json();
+  const rawCookies = res.headers.getSetCookie ? res.headers.getSetCookie() : [res.headers.get("set-cookie")].filter(Boolean);
+  const cookie = rawCookies.map(c => c.split(";")[0]).join("; ");
+  return { ...user, cookie };
 }
 
 const sarra = await login("sarra@demo.tn");
@@ -22,11 +25,12 @@ const yassine = await login("yassine@demo.tn");
 const mariem = await login("mariem@demo.tn");
 
 const call = async (user, method, path, body) => {
+  const headers = { "Content-Type": "application/json" };
+  if (user?.cookie) headers["Cookie"] = user.cookie;
   const res = await fetch(BASE + path, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
-    credentials: "include",
   });
   let data = null; try { data = await res.json(); } catch {}
   return { status: res.status, data };

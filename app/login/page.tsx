@@ -84,6 +84,32 @@ export default function LoginPage() {
         <p className="auth-hint">
           Pas encore de compte ? <Link href="/register">S&apos;inscrire</Link>
         </p>
+        <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid #e2e8f0", fontSize: "0.875rem" }}>
+          <p style={{ fontWeight: 600, marginBottom: "0.5rem", color: "#475569" }}>Comptes de démonstration :</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            <button
+              type="button"
+              onClick={() => { setEmail("sarra@demo.tn"); setPassword("Password123!"); }}
+              style={{ padding: "4px 8px", borderRadius: "6px", background: "#f1f5f9", border: "1px solid #cbd5e1", cursor: "pointer", fontSize: "0.8rem" }}
+            >
+              👤 Patient (Sarra)
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEmail("amel@demo.tn"); setPassword("Password123!"); }}
+              style={{ padding: "4px 8px", borderRadius: "6px", background: "#f1f5f9", border: "1px solid #cbd5e1", cursor: "pointer", fontSize: "0.8rem" }}
+            >
+              🩺 Médecin (Dr. Amel)
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEmail("yassine@demo.tn"); setPassword("Password123!"); }}
+              style={{ padding: "4px 8px", borderRadius: "6px", background: "#f1f5f9", border: "1px solid #cbd5e1", cursor: "pointer", fontSize: "0.8rem" }}
+            >
+              🩺 Médecin (Dr. Yassine)
+            </button>
+          </div>
+        </div>
       </div>
     </main>
   );
